@@ -107,3 +107,8 @@ During the cleanup, `Build/Original_Backup_2026-11-23/` and the root `main batte
 - `Test_State_Enum.ctl` holds 8 items (INIT, IDLE, CHARGE _CC, CHARGE _CV, REST, DISCHARGE_DC, Fault, Stop), not the 6 in the brief. It was left unchanged, and a new `Sim_State_Enum.ctl` is planned.
 - `Test_State_Enum2.ctl` is the Charge/Discharge mode typedef. It is reused.
 - `user_interface.vi`: almost the whole diagram sits in the Disabled frame of a Diagram Disable structure. The only live code was Random Number (U64) → the DC Voltage/DC Current charts. Three labels each appear twice (DC Voltage, DC Current, Temperature). The blank field next to Close is a string indicator labelled `Clock`.
+
+## Hardware plan revised (2026-11-23)
+- `docs/hardware/CRIO_HARDWARE_INTEGRATION.md` was rewritten as a low-cost bench: 4 × 18650 2000 mAh cells in series (4S) with a balancing BMS, a fixed 16.8 V / 1 A charger, a 12 V 10 W bulb + 4.7 Ω load, a 0.05 Ω shunt, one type K thermocouple and a 2-channel relay module (≈ ₹1,600–2,400; the cRIO and its modules are already in the lab).
+- Removed from the plan: programmable supply and electronic load, contactors, the second (ambient) thermocouple, the NI 9205 divider and the NI 9263 setpoints. All measurements are on NI 9219; NI 9401 drives the two relays.
+- README and BUILD_AND_TEST_REPORT §7 were updated to match.

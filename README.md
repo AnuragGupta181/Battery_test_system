@@ -10,7 +10,7 @@ The current phase is **SIMULATION ONLY**: every value is simulated, and no batte
 | Main VI | `Build/Simulation/Battery_Test_System_Main.vi` runs in LabVIEW 2019 |
 | Tests | Unit 41/41 and acceptance 15/15 **passed** (see `docs/reports/BUILD_AND_TEST_REPORT.md`) |
 | UI | Functional, auto-arranged panel. Optional Silver styling: `docs/build/UI_STYLING_GUIDE.md` |
-| Hardware | Not connected yet. Plan: `docs/hardware/CRIO_HARDWARE_INTEGRATION.md` |
+| Hardware | Not connected yet. Low-cost 4S 18650 plan (≈ ₹2,000 besides the cRIO): `docs/hardware/CRIO_HARDWARE_INTEGRATION.md` |
 
 ## Quick start
 1. Open **`Build/Simulation/Battery_Test_System_Simulation.lvproj`** in **LabVIEW 2019** (32-bit).

@@ -78,8 +78,8 @@ The old versions are kept in `Build/Tools_LV2019/staging/replaced_20261123/`.
 
 ## 7. Future hardware phase (out of scope)
 
-Replace `Sim_Update_Model.vi` with a cRIO I/O VI that has the same connector pane:
-- read V, I and T (NI 9205/9219)
-- drive the supply reference and enables (NI 9263/9401) **only** from the interlocked `Sim PS Enable` / `Sim Load Enable` flags
+Low-cost 4S plan in `docs/hardware/CRIO_HARDWARE_INTEGRATION.md`. Replace `Sim_Update_Model.vi` with a cRIO I/O VI that has the same connector pane:
+- read V, I and T (all on NI 9219)
+- switch the charger and load relays (NI 9401) **only** from the interlocked `Sim PS Enable` / `Sim Load Enable` flags
 
 Keep `Sim_Check_Safety.vi`, but back it with a real BMS or hardware interlock.

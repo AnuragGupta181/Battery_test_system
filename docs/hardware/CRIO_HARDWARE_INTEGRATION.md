@@ -1,169 +1,226 @@
-# cRIO Hardware Integration Guide (future phase)
+# cRIO Hardware Integration Guide: low-cost 4S bench (future phase)
 
-This guide takes the **tested LabVIEW 2019 simulation** to a real battery test bench on the existing **NI cRIO-9063** with **NI 9205 / 9219 / 9263 / 9401**.
+This guide takes the **tested LabVIEW 2019 simulation** to a small, low-cost battery bench. It uses the lab's existing **NI cRIO-9063** with its **NI 9205 / 9219 / 9263 / 9401** modules.
 
-> ⚠️ **SAFETY FIRST.** A lithium-ion pack can deliver very high short-circuit current and can catch fire.
-> - The software checks in this project are **simulation checks only**. They are **not** a battery management system and **not** a safety interlock.
-> - The real bench needs **hardware** protection: a fuse at the battery, a BMS, a hard-wired emergency stop, and contactors that physically cannot close at the same time.
-> - Have the wiring checked by a qualified person before connecting a battery.
+The pack is **4 × 18650 Li-ion cells (2000 mAh) in series (4S) with a BMS**. A **fixed 16.8 V Li-ion charger** charges it, and a **12 V bulb plus a resistor** discharges it. Two relays switch them in and out under software control.
+
+> ⚠️ **SAFETY FIRST.** Li-ion cells can deliver high short-circuit current and can catch fire.
+> - The software limits in this project are **demonstration checks**, not certified protection.
+> - The **BMS**, the **fuse**, the **E-stop switch** and the **relay interlock** are the real protection.
+> - Generic cells with no datasheet are the biggest risk. Charge on a non-flammable surface, and never leave the bench unattended while charging.
+> - Have the wiring checked by a qualified person before connecting the pack.
 >
-> **Verify every terminal number against the module's front label and the NI Operating Instructions / Getting Started guide for your exact module variant** (spring terminal vs. DSUB) before wiring. The terminal numbers below are the commonly used layout, given for planning; the **channel names** are what the software uses.
+> **Verify every terminal number** against the module's front label and the NI Operating Instructions for your module variant before wiring. The terminal numbers below are for planning; the **channel names** are what the software uses.
 
 ---
 
-## 1. Hardware you need
+## 1. Pack data (4S, 2000 mAh cells)
 
-### Already available
-| Item | Role |
+| | Per cell | 4S pack |
+|---|---|---|
+| Full charge | 4.2 V | **16.8 V** |
+| Nominal | 3.7 V | **14.8 V** |
+| Software discharge stop | 3.0 V | **12.0 V** |
+| Capacity | 2000 mAh (label; generic cells are often lower) | **2000 mAh** (series adds voltage, not capacity) |
+| Charge current | | **1 A** (0.5C), fixed by the charger |
+| Discharge current | | **~0.7–0.9 A** with one bulb set; ~1.8 A with two (≤ 1C) |
+
+**Before assembling the pack:**
+- Charge **each cell separately** to 4.2 V with the single-cell charger that comes with the cells.
+- Check with a multimeter that all 4 cells are within **0.05 V** of each other (top balancing).
+- **Never** charge the assembled 4S pack with the single-cell charger.
+
+---
+
+## 2. Hardware
+
+### Already in the lab (not bought)
+| Item | Used for |
 |---|---|
-| NI cRIO-9063 (chassis + RT controller) | Runs the real-time I/O loop |
-| NI 9205 (slot 1) | 16 differential / 32 single-ended analog inputs, ±10 V max: battery voltage (through a divider) |
-| NI 9219 (slot 2) | 4 isolated universal inputs: shunt voltage (current) and thermocouples |
-| NI 9263 (slot 3) | 4 analog outputs, ±10 V, low current: setpoints for the supply and the load |
-| NI 9401 (slot 4) | 8 TTL digital I/O (5 V, DSUB-25): enables, contactors, status inputs |
+| NI cRIO-9063 + its 24 V supply | Real-time I/O and safety loop |
+| NI 9219 (slot 2) | **All measurements:** current (shunt), temperature (thermocouple), pack voltage (±60 V range) |
+| NI 9401 (slot 4) | Relay control (charger, load) and the optional E-stop status input |
+| NI 9205 (slot 1) | **Not used.** Optional later: per-cell voltages (cell taps need dividers, since the inputs are ±10 V max) |
+| NI 9263 (slot 3) | **Not used.** The charger and the bulb have no analog setpoint input |
 
-### To buy or confirm
-| # | Item | Recommended spec | Why |
+### To buy (approx. Indian prices)
+| # | Item | Spec | Approx. ₹ |
 |---|---|---|---|
-| 1 | **24 V DC supply for the cRIO** | 24 V, ≥ 2 A (cRIO-9063 accepts 9–30 V) | Powers the controller and modules |
-| 2 | **Battery pack with BMS** | Confirm the chemistry and series count first, e.g. 4S LiFePO4 (12.8 V nominal, 14.6 V max) or 3S NMC (11.1 V nominal, 12.6 V max) | Sets the real voltage limits; the BMS is the primary protection |
-| 3 | **Programmable DC power supply** | Above the pack's max charge voltage (e.g. ≥ 20 V), current ≥ max charge current, with an **analog programming input (0–5 V or 0–10 V)** and a **remote output-enable input** | Charging, controlled by NI 9263 + NI 9401 |
-| 4 | **Programmable DC electronic load** | ≥ pack voltage, ≥ max discharge current and power, with an **analog current-programming input** and a **remote enable input** | Discharging, controlled by NI 9263 + NI 9401 |
-| 5 | **Current shunt** | e.g. 50 A / 75 mV (1.5 mΩ) or 20 A / 75 mV, 0.25 % or better | Current measurement on NI 9219 (±125 mV range) |
-| 6 | **Thermocouples** | Type K, self-adhesive or ring-lug, at least 2 (cell surface + ambient) | Temperature on NI 9219 (built-in cold-junction compensation) |
-| 7 | **Voltage divider** (only if you use NI 9205 for battery voltage) | e.g. R1 = 20 kΩ, R2 = 10 kΩ, 0.1 %, ≥ 0.25 W → ÷3 (14.6 V → 4.87 V) | NI 9205 inputs are limited to ±10 V |
-| 8 | **Two DC contactors / relays** | Rated for the max battery current at DC; coil 12 V or 24 V | Physically separate the charge path and the discharge path |
-| 9 | **Relay driver / opto-isolated relay board** | 5 V TTL input, ≥ 4 channels | The NI 9401 output cannot drive relay coils directly |
-| 10 | **Emergency-stop button** | Mushroom head, NC contact, latching | Hard-wired: cuts the contactor coil supply |
-| 11 | **Battery fuse** | DC-rated, sized for the cable and the max current, mounted at the battery + terminal | Short-circuit protection |
-| 12 | Cables, ferrules, DSUB-25 breakout for NI 9401, cable lugs, enclosure | Appropriate cross-sections | Wiring |
+| 1 | 18650 Li-ion cells | 4 cells, same batch (2 × 2-cell combo packs) | ~560 |
+| 2 | **4S BMS with balancing** | 4S, 16.8 V, 10–20 A, with balance leads | 150–250 |
+| 3 | 4 × 18650 **series** holder, with leads | Or nickel strip spot-welded by a shop. **Don't solder the cells.** | 80–150 |
+| 4 | **16.8 V Li-ion charger adapter** | 16.8 V, **1 A**, CC/CV with auto cut-off | 350–500 |
+| 5 | **Load:** 12 V 10 W bulb + holder | Wired in series with item 6 | 50–80 |
+| 6 | **4.7 Ω, 10 W** resistor | Series with the bulb (see §5). One more bulb + resistor set if you want 2× discharge speed. | 20–40 |
+| 7 | **Shunt resistor: 0.05 Ω (50 mΩ)** | 1 %, ≥ 2 W | 20–60 |
+| 8 | **1 × type K thermocouple** | Adhesive or washer tip | 120–200 |
+| 9 | **2-channel opto-isolated relay module**, 5 V | SPDT contacts (COM / NO / NC), ≥ 10 A | 80–120 |
+| 10 | 5 V USB adapter for the relay module | Any phone charger | usually on hand |
+| 11 | Inline fuse holder + **3 A** fuse | At the pack + output | 40–60 |
+| 12 | E-stop or toggle switch | NC contact. A 2-contact mushroom also feeds the status input (optional). | 30–250 |
+| 13 | Wire (18 AWG power, thin for sensing), terminal block, DSUB-25 breakout for NI 9401 | | 100–250 |
+| | **Total** | | **≈ ₹1,600 – 2,400** |
+
+### Removed from the earlier plan, and why
+| Removed | Reason |
+|---|---|
+| Programmable DC power supply | Replaced by the fixed 16.8 V charger, which does CC/CV itself |
+| Programmable electronic load | Replaced by the bulb + resistor load |
+| 2 DC contactors + 4-channel relay board | One 2-channel relay module is enough at ~1 A |
+| Second thermocouple (ambient) | Not needed: NI 9219 has built-in cold-junction compensation, and the software has an `Ambient Temp` setting |
+| Voltage divider for NI 9205 | NI 9219 measures the pack directly in its ±60 V range |
+| PSU / load "ready" and BMS-OK status inputs | The charger and cheap BMS boards have no status outputs |
+| NI 9263 analog setpoints | Nothing to program |
+
+**What you lose:** the software can no longer *set* the charge current or the load current. It switches the charger and the load on and off, measures everything, and stops on the limits.
 
 ---
 
-## 2. Power-path wiring (overview)
+## 3. Power-path wiring
 
 ```
-                    +--------- FUSE ---------+
- Battery + ---------|                        |---- Shunt (+ side) ---+
-                                                                     |
-                     +-------- K1 (charge) --------- PSU +           |
- node "BATT+" -------+                                               |
-                     +-------- K2 (discharge) ------ LOAD +          |
-                                                                     |
- Battery - ---- Shunt ---------------------------------------- PSU - and LOAD -
-              (measure across the shunt with NI 9219 CH0)
+ Cells B- ... B+  ==  BMS (B-, balance leads, P-)
+                                           
+ Pack + (B+) -- FUSE 3 A --+-- Relay 1 COM
+                           |     Relay 1 NO ---------------- Charger +
+                           |     Relay 1 NC -- Relay 2 COM
+                           |                     Relay 2 NO -- Bulb -- 4.7 ohm -- (load end)
+                                                                               
+ BMS P- -- [ SHUNT 0.05 ohm ] -- common negative ---- Charger -  and  load end
+             NI 9219 CH0 across the shunt
 
- K1 and K2 coils: driven from the relay board (NI 9401 DIO2 / DIO3).
- Coil supply goes THROUGH the E-stop NC contact AND through the NC auxiliary contact
- of the other contactor (hardware interlock: K1 and K2 can never be closed together).
+ Relay module VCC (5 V USB adapter) goes THROUGH the E-stop NC contact.
 ```
 
-Put the shunt in the **negative** (low-side) lead so its voltage stays close to ground. NI 9219 channels are isolated, so a high-side shunt also works.
+- **Hardware interlock:** relay 2 gets its supply from relay 1's **NC** contact. When relay 1 connects the charger, the load is physically disconnected, so the charger and the load can never be connected together, whatever the software does.
+- **E-stop:** pressing it removes the relay module's 5 V, so both relays drop out, cutting off the charger and the load.
+- **Shunt placement:** between BMS **P−** and the common negative of the charger and the load. One shunt then measures both directions.
+- Put the **fuse** as close to the pack + as possible.
 
 ---
 
-## 3. Signal wiring: module by module
+## 4. Signal wiring: module by module
 
-### NI 9205, slot 1: battery voltage
-| Signal | Channel | Wiring | Range / mode |
-|---|---|---|---|
-| Battery voltage (divided ÷3) | **AI0** (differential: AI0 = +, **AI8** = −) | Divider output → AI0, battery − (divider bottom) → AI8 | ±10 V, differential |
-| Spare | AI1/AI9 … | – | – |
-| Reference | **COM** | Connect COM to battery − through a 10 kΩ … 100 kΩ resistor (keeps the inputs within the common-mode range) | – |
-
-Scaling: `V_batt = V_AI0 × (R1 + R2) / R2` (= × 3 for 20 k / 10 k).
-
-> **Alternative without a divider:** measure battery voltage on **NI 9219 CH3** in its **±15 V** range: HI = battery +, LO = battery −. It's simpler and isolated, but slower.
-
-### NI 9219, slot 2: current and temperature
+### NI 9219, slot 2: all measurements
 Each channel has 6 terminals (commonly 1 = T+, 2 = T−, 3 = EX+, 4 = HI, 5 = LO, 6 = EX−; **verify on your module**).
 
 | Signal | Channel | Terminals | Mode / range |
 |---|---|---|---|
-| Shunt voltage (battery current) | **CH0** | HI = shunt battery side, LO = shunt load side | Voltage, **±125 mV** |
-| Battery cell temperature | **CH1** | HI = TC + (yellow, type K), LO = TC − (red, type K) | Thermocouple, **Type K**, internal CJC |
-| Ambient temperature | **CH2** | HI = TC +, LO = TC − | Thermocouple, Type K |
-| (optional) Battery voltage | **CH3** | HI = battery +, LO = battery − | Voltage, ±15 V |
+| Pack current (shunt) | **CH0** | HI = shunt **P− side**, LO = shunt **common-negative side**. Connect the sense wires right at the resistor legs (Kelvin). | Voltage, **±125 mV** |
+| Cell temperature | **CH1** | HI = TC + (yellow), LO = TC − (red) | Thermocouple, **Type K**, internal CJC |
+| Pack voltage | **CH2** | HI = pack + (after fuse), LO = BMS P− | Voltage, **±60 V** (16.8 V is above the ±15 V range) |
+| Spare | CH3 | – | – |
 
-Scaling: `I_batt = V_CH0 / R_shunt`. For example, 50 A / 75 mV gives R = 0.0015 Ω, so 75 mV corresponds to 50 A. The sign shows charge vs. discharge.
+Scaling:
+- `I_pack = V_CH0 / 0.05`. With this HI/LO, **charge is positive and discharge is negative**, which matches the software. If the sign comes out reversed, swap HI/LO or multiply by −1.
+- At 2 A the shunt gives 100 mV, inside the 125 mV range. At 1 A it gives 50 mV. Shunt heat at 2 A is 0.2 W.
+- Don't use 0.1 Ω: it would exceed 125 mV above 1.25 A.
+- Fit the thermocouple on the **middle cells** of the pack, which are the hottest spot.
 
-### NI 9263, slot 3: analog setpoints
-Spring-terminal layout, commonly **0 = AO0, 1 = COM, 2 = AO1, 3 = COM, 4 = AO2, 5 = COM, 6 = AO3, 7 = COM**.
-
-| Signal | Channel | Goes to | Scaling (example) |
-|---|---|---|---|
-| Power supply **voltage** setpoint | **AO0** / COM | PSU analog V-program input | 0–10 V = 0–V_max(PSU); check the PSU manual |
-| Power supply **current limit** | **AO1** / COM | PSU analog I-program input | 0–10 V = 0–I_max(PSU) |
-| Electronic load **current** setpoint | **AO2** / COM | LOAD analog I-program input | 0–10 V = 0–I_max(LOAD) |
-| Spare | AO3 | – | – |
-
-> NI 9263 outputs are low-current (a few mA) and are **not** a power source. If the PSU or load programming input is not isolated, add an **isolation amplifier** to avoid ground loops.
-
-### NI 9401, slot 4: digital I/O (5 V TTL, DSUB-25)
-Direction is set **per nibble**: DIO0–3 = **outputs**, DIO4–7 = **inputs** (configure this in the project's module properties). **Take the DSUB-25 pin numbers from the NI 9401 pinout in its Operating Instructions.**
+### NI 9401, slot 4: relays and E-stop (5 V TTL, DSUB-25)
+Direction is set **per nibble**: DIO0–3 = outputs, DIO4–7 = inputs (set in the project's module properties). **Take the DSUB-25 pin numbers from the NI 9401 Operating Instructions.**
 
 | Signal | Line | Dir | Connect to |
 |---|---|---|---|
-| PSU output enable | **DIO0** | out | Relay board ch1 → PSU remote-enable input |
-| LOAD input enable | **DIO1** | out | Relay board ch2 → LOAD remote-enable input |
-| Charge contactor K1 coil | **DIO2** | out | Relay board ch3 → K1 coil (through E-stop + K2-NC) |
-| Discharge contactor K2 coil | **DIO3** | out | Relay board ch4 → K2 coil (through E-stop + K1-NC) |
-| E-stop status (released = 1) | **DIO4** | in | Second E-stop contact → 5 V pull-up |
-| BMS OK | **DIO5** | in | BMS "OK/no-fault" output via opto-isolator |
-| PSU ready / connected | **DIO6** | in | PSU status output via opto-isolator |
-| LOAD ready / connected | **DIO7** | in | Load status output via opto-isolator |
-| Ground | **COM** pins | – | Relay board and opto-isolator ground |
+| Charger connect | **DIO0** | out | Relay module IN1 |
+| Load connect | **DIO1** | out | Relay module IN2 |
+| E-stop status (released = 1), optional | **DIO4** | in | Second E-stop contact → 5 V pull-up |
+| Ground | **COM** | – | Relay module GND (input side) |
 
-> NI 9401 lines are 5 V TTL with limited current. **Never** connect relay coils, 12/24 V signals or the battery directly; always go through the relay board or opto-isolators.
+**Relay drive check:**
+- Compare the NI 9401 output current in its datasheet with the relay module's input current. Opto inputs usually draw a few mA.
+- If the 9401 can't supply it, add a **ULN2003** driver (about ₹30).
+- Note whether the module is **active-low** (triggers on 0 V). If it is, invert DIO0/DIO1 in software so that "OFF" really is off at power-up.
+- **Never** connect the battery or 12/24 V signals to the NI 9401.
+
+### NI 9205 and NI 9263
+Not used in this plan.
 
 ---
 
-## 4. How the signals map to the software
+## 5. The bulb load
+
+A 12 V bulb on a 16.8 V pack is 40 % overvolted, which shortens its life a lot. A **4.7 Ω, 10 W resistor in series** fixes that:
+
+| Pack voltage | Current (approx.) | Bulb sees | Look |
+|---|---|---|---|
+| 16.8 V (full) | ~0.9 A | ~12.7 V | Bright |
+| 14.8 V (nominal) | ~0.8 A | ~11 V | Normal |
+| 12.0 V (stop) | ~0.7 A | ~8.7 V | Visibly dimmer |
+
+- The resistor dissipates about 4 W, so it gets warm. Mount it away from the cells.
+- One set takes about 2.5 h from full to 12 V. Two sets in parallel draw about 1.8 A and take about 1.2 h.
+- The current is not constant (it falls with voltage). That is fine, because the software measures the real current.
+
+---
+
+## 6. How the signals map to the software
 
 | Software field (`Sim_Data.ctl`) | Today (simulation) | Hardware source |
 |---|---|---|
-| `Voltage (V)` | model | NI 9205 AI0 × divider ratio (or NI 9219 CH3) |
-| `Current (A)` | model | NI 9219 CH0 / R_shunt |
+| `Voltage (V)` | model | NI 9219 CH2 |
+| `Current (A)` | model | NI 9219 CH0 / 0.05 |
 | `Temperature (degC)` | model | NI 9219 CH1 |
-| `Sim PS Enable` | interlock in model | → NI 9401 DIO0 **and** DIO2 (K1) |
-| `Sim Load Enable` | interlock in model | → NI 9401 DIO1 **and** DIO3 (K2) |
-| `Setpoint Voltage (V)` / `Setpoint Current (A)` | user setpoints | → NI 9263 AO0 / AO1 (charge) or AO2 (discharge) |
-| `Power Supply Connected?` / `DC Load Connected?` LEDs | always FALSE | NI 9401 DIO6 / DIO7 |
-| `DAQ CONNECTED?` LED | always FALSE | TRUE when the cRIO I/O loop is running and reachable |
-| `Inject E-Stop` (fault source 1) | demo switch | E-stop pressed = **NOT(DIO4)** |
-| new: BMS fault | – | BMS fault = **NOT(DIO5)** |
+| `SOC (%)` | from C-rate | **Coulomb counting:** `SOC += I × dt / 3600 / Capacity_Ah × 100`, starting from 100 % after a full charge |
+| `Sim PS Enable` | interlock in model | → NI 9401 **DIO0** (charger relay) |
+| `Sim Load Enable` | interlock in model | → NI 9401 **DIO1** (load relay) |
+| `Setpoint Voltage (V)` / `Setpoint Current (A)` | user setpoints | **Not used.** Fixed by the charger (16.8 V / 1 A) and the bulb |
+| `Power Supply Connected?` / `DC Load Connected?` LEDs | always FALSE | Show the commanded DIO0 / DIO1 state |
+| `DAQ CONNECTED?` LED | always FALSE | TRUE while the cRIO I/O loop is running and reachable |
+| `Inject E-Stop` (fault source 1) | demo switch | E-stop pressed = **NOT(DIO4)** (if the second contact is wired) |
+
+### Settings for this pack (demonstration values, not certified limits)
+| Setting | Value |
+|---|---|
+| Charge complete | V ≥ 16.8 V **and** current < 0.1 A (the charger also cuts off itself) |
+| Discharge complete | V ≤ **12.0 V** |
+| Overvoltage fault | 17.0 V |
+| Overcurrent fault | 2.5 A |
+| Overtemperature fault | 45 °C |
+| Capacity | 2.0 Ah (correct it after the first full measured discharge) |
+
+The BMS cuts off at its own limits (typically about 4.25 V and 2.5–2.8 V per cell), which are outside the software limits, so the software always acts first.
 
 ---
 
-## 5. Software steps (LabVIEW 2019)
+## 7. Software steps (LabVIEW 2019)
 
-1. **Install on the PC:** LabVIEW 2019 Real-Time Module + NI CompactRIO / NI-RIO driver (the version matching LabVIEW 2019). Use NI MAX to install the same software set on the cRIO-9063.
-2. **In the project:** the cRIO target already has **Real-Time Scan Resources** with Mod1–Mod4. Set:
-   - NI 9219: CH0 = Voltage ±125 mV; CH1/CH2 = Thermocouple Type K
-   - NI 9205: differential mode (or the ±15 V channel on the 9219)
+1. **Install on the PC:** LabVIEW 2019 Real-Time Module + NI CompactRIO / NI-RIO driver matching LabVIEW 2019. Use NI MAX to install the same software set on the cRIO-9063.
+2. **In the project:** under the cRIO target's **Real-Time Scan Resources**, set:
+   - NI 9219: CH0 = Voltage ±125 mV; CH1 = Thermocouple Type K; CH2 = Voltage ±60 V
    - NI 9401: DIO0–3 output, DIO4–7 input
-3. **New VI `HW_IO_Update.vi` (under the cRIO target)** with the **same connector pane as `Sim_Update_Model.vi`** (Sim Data in, Settings, State, dt → Sim Data out):
-   - Read the scan-engine I/O variables (`Mod1/AI0`, `Mod2/CH0`, `Mod2/CH1`, …), scale them, and bundle them into Sim Data.
-   - Compute the outputs **only** from the interlocked `Sim PS Enable` / `Sim Load Enable` flags. Write AO0–AO2 and DIO0–DIO3 accordingly.
-   - Force all outputs OFF on any error, in FAULT, and on loop exit.
-4. **Architecture:** run the I/O + safety loop **on the cRIO** (deterministic and keeps running if the PC disconnects), and keep the UI on the PC. Communicate through network-published shared variables or network streams. The existing state machine and the safety, completion and CSV subVIs can be reused as they are.
-5. **Real limits:** replace the DEMO values in `Simulation Settings` with the limits from the **battery datasheet and BMS**. Keep the hardware protection anyway.
-6. **Bring-up order** (never skip):
-   1. Without a battery: check every input with a known source. Check every output with a multimeter; the contactors must not click together.
-   2. Check the E-stop: pressing it must open both contactors with the software still running.
-   3. With a **dummy load / lab supply** instead of the battery: low-current charge and discharge.
-   4. Only then with the battery, at low C-rate, while supervised.
+3. **New VI `HW_IO_Update.vi`** (under the cRIO target), with the **same connector pane as `Sim_Update_Model.vi`** (Sim Data in, Settings, State, dt → Sim Data out):
+   - Read `Mod2/CH0`, `Mod2/CH1` and `Mod2/CH2`, scale them, and do the coulomb-counting SOC.
+   - Write DIO0 and DIO1 **only** from the interlocked `Sim PS Enable` / `Sim Load Enable` flags.
+   - Force both relays OFF on any error, in FAULT, and on loop exit.
+4. **Architecture:** run the I/O + safety loop **on the cRIO** (deterministic, and it keeps running if the PC disconnects). Keep the UI on the PC, linked by network-published shared variables. The existing state machine and the safety, completion and CSV subVIs can be reused as they are.
+5. **Bring-up order** (never skip a step):
+   1. **No pack connected:**
+      - Check the relays click on DIO0 and DIO1.
+      - Confirm relay 2 cannot connect while relay 1 is on.
+      - Check the E-stop drops both relays.
+   2. **NI 9219 inputs:**
+      - CH2 reads the charger output voltage correctly (compare with a multimeter).
+      - CH1 reads room temperature.
+      - CH0 reads about 0 with no current.
+   3. **Pack connected, load only, short run:**
+      - The current is negative and about 0.8 A.
+      - The voltage falls slowly.
+   4. **Charge, supervised:**
+      - The current is positive and about 1 A.
+      - It stops at 16.8 V.
 
 ---
 
-## 6. Wiring checklist (print it)
+## 8. Wiring checklist (print it)
 
-- [ ] Fuse at battery +, rated for DC and the max current
-- [ ] Shunt in the battery − lead; NI 9219 CH0 HI/LO across it
-- [ ] K1 / K2 coil circuits pass through the E-stop NC contact **and** the other contactor's NC auxiliary contact
-- [ ] NI 9205 input voltage < 10 V at max battery voltage (divider checked with a multimeter)
-- [ ] NI 9263 AO0–AO2 → programming inputs (isolated if needed); scaling noted from the PSU and load manuals
-- [ ] NI 9401 → relay board / opto-isolators only; DIO0–3 out, DIO4–7 in
-- [ ] Thermocouple polarity correct (type K: yellow +, red −); reads room temperature
-- [ ] cRIO powered from its own 24 V supply; chassis grounded
-- [ ] All DEMO limits replaced with real datasheet limits
+- [ ] Cells top-balanced (within 0.05 V) before assembly; BMS balance leads in the right order
+- [ ] 3 A fuse at pack +
+- [ ] Relay 2 fed from relay 1's **NC** contact (hardware interlock)
+- [ ] Relay module 5 V goes through the E-stop NC contact
+- [ ] Shunt between BMS P− and the common negative; NI 9219 CH0 sense wires at the resistor legs
+- [ ] NI 9219 CH2 set to ±60 V (not ±15 V)
+- [ ] Thermocouple polarity correct (yellow +, red −), taped to the middle cells, reads room temperature
+- [ ] NI 9401 drives only the relay module inputs (ULN2003 if needed); DIO0–3 out, DIO4–7 in
+- [ ] Bulb resistor mounted away from the cells
+- [ ] All DEMO limits replaced with the values in §6 (or the cell datasheet, if you have one)
