@@ -1,0 +1,39 @@
+<VI _name="Sim_Check_Completion.vi" description="Completion check for CHARGING / DISCHARGING. Done when the SOC target is reached (charge: SOC at or above Charge Complete SOC; discharge: SOC at or below Discharge Complete SOC) or the setpoint duration has elapsed. CYCLE DEFINITION: a half-cycle counts only when its SOC target is reached; duration expiry does not count. When both halves are done (either order) Cycle Count increments once and both flags clear. Not done: data passes through unchanged.">
+  <Control _name="Sim Data in" conIdx="11" connection="required" type="cluster{double.SOC (%),double.Voltage (V),double.Current (A),double.Temperature (degC),double.Run Time (s),double.Elapsed (s),uint32.Cycle Count,uint16{Charge,Discharge}.Active Mode,double.Setpoint Voltage (V),double.Setpoint Current (A),double.Setpoint C-Rate (1/h),double.Setpoint Duration (min),bool.Sim PS Enable,bool.Sim Load Enable,bool.Charge Half Done,bool.Discharge Half Done,bool.Fault,int32.Fault Code,string.Fault Message,string.Fault Time,string.Status Message}" uid="100" uid_parent="root" value="[0,0,0,0,0,0,0,0,0,0,0,0,false,false,false,false,false,0,,,]" outputs="value:100.value"/>
+  <Control _name="Settings" conIdx="10" connection="required" type="cluster{int32.UI Update Interval (ms),double.Max dt (s),double.Initial SOC (%),double.Rest Voltage (V),double.Ambient Temperature (degC),double.Voltage Time Constant (s),double.Current Time Constant (s),double.Thermal Time Constant (s),double.Heating Coefficient (degC/s per A^2),double.SOC Speed Factor,double.Charge Complete SOC (%),double.Discharge Complete SOC (%),double.Max Voltage Limit (V),double.Max Current Limit (A),double.Max Temperature Limit (degC),double.Max C-Rate (1/h),double.Max Duration (min),int32.History Length (samples),bool.Inject E-Stop,bool.Inject Overvoltage,bool.Inject Overcurrent,bool.Inject Overtemperature}" uid="101" uid_parent="root" value="[200,1,50,12,25,5,1,120,0.002,1,100,0,15,10,45,5,600,3000,false,false,false,false]" outputs="value:101.value"/>
+  <Control _name="State" conIdx="9" connection="required" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="102" uid_parent="root" value="2" outputs="value:102.value"/>
+  <Indicator _name="Sim Data out" conIdx="3" connection="recommended" type="cluster{double.SOC (%),double.Voltage (V),double.Current (A),double.Temperature (degC),double.Run Time (s),double.Elapsed (s),uint32.Cycle Count,uint16{Charge,Discharge}.Active Mode,double.Setpoint Voltage (V),double.Setpoint Current (A),double.Setpoint C-Rate (1/h),double.Setpoint Duration (min),bool.Sim PS Enable,bool.Sim Load Enable,bool.Charge Half Done,bool.Discharge Half Done,bool.Fault,int32.Fault Code,string.Fault Message,string.Fault Time,string.Status Message}" uid="300" uid_parent="root" value="[0,0,0,0,0,0,0,0,0,0,0,0,false,false,false,false,false,0,,,]" inputs="value:230.out"/>
+  <Indicator _name="Done?" conIdx="2" connection="recommended" type="bool" uid="301" uid_parent="root" value="false" inputs="value:210.done"/>
+
+  <Node _name="Unbundle By Name" fields="SOC (%),Elapsed (s),Setpoint Duration (min),Cycle Count,Charge Half Done,Discharge Half Done" inputs="input cluster:100.value" outputs="SOC (%):200.soc,Elapsed (s):200.el,Setpoint Duration (min):200.dur,Cycle Count:200.cyc,Charge Half Done:200.chd,Discharge Half Done:200.dhd" uid="200" uid_parent="root"/>
+  <Node _name="Unbundle By Name" fields="Charge Complete SOC (%),Discharge Complete SOC (%)" inputs="input cluster:101.value" outputs="Charge Complete SOC (%):201.csoc,Discharge Complete SOC (%):201.dsoc" uid="201" uid_parent="root"/>
+  <Constant _name="CHARGING" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="202" uid_parent="root" value="2" outputs="value:202.value"/>
+  <Node _name="Equal?" inputs="x:102.value,y:202.value" outputs="x = y?:203.ischg" uid="203" uid_parent="root"/>
+  <Node _name="Greater Or Equal?" inputs="x:200.soc,y:201.csoc" outputs="x &gt;= y?:204.r" uid="204" uid_parent="root"/>
+  <Node _name="Less Or Equal?" inputs="x:200.soc,y:201.dsoc" outputs="x &lt;= y?:205.r" uid="205" uid_parent="root"/>
+  <Node _name="Select" inputs="t:204.r,s:203.ischg,f:205.r" outputs="s? t\3Af:206.socdone" uid="206" uid_parent="root"/>
+  <Constant _name="seconds per minute" type="double" uid="207" uid_parent="root" value="60" outputs="value:207.value"/>
+  <Node _name="Multiply" inputs="x:200.dur,y:207.value" outputs="x*y:208.dursec" uid="208" uid_parent="root"/>
+  <Node _name="Greater Or Equal?" inputs="x:200.el,y:208.dursec" outputs="x &gt;= y?:209.timedone" uid="209" uid_parent="root"/>
+  <Node _name="Or" inputs="x:206.socdone,y:209.timedone" outputs="x .or. y?:210.done" uid="210" uid_parent="root"/>
+  <Node _name="Not" inputs="x:203.ischg" outputs=".not. x?:211.isdis" uid="211" uid_parent="root"/>
+  <Node _name="And" inputs="x:206.socdone,y:203.ischg" outputs="x .and. y?:212.chgnow" uid="212" uid_parent="root"/>
+  <Node _name="And" inputs="x:206.socdone,y:211.isdis" outputs="x .and. y?:213.disnow" uid="213" uid_parent="root"/>
+  <Node _name="Or" inputs="x:200.chd,y:212.chgnow" outputs="x .or. y?:214.nchd" uid="214" uid_parent="root"/>
+  <Node _name="Or" inputs="x:200.dhd,y:213.disnow" outputs="x .or. y?:215.ndhd" uid="215" uid_parent="root"/>
+  <Node _name="And" inputs="x:214.nchd,y:215.ndhd" outputs="x .and. y?:216.full" uid="216" uid_parent="root"/>
+  <Node _name="Not" inputs="x:216.full" outputs=".not. x?:217.nfull" uid="217" uid_parent="root"/>
+  <Node _name="And" inputs="x:214.nchd,y:217.nfull" outputs="x .and. y?:218.chdout" uid="218" uid_parent="root"/>
+  <Node _name="And" inputs="x:215.ndhd,y:217.nfull" outputs="x .and. y?:219.dhdout" uid="219" uid_parent="root"/>
+  <Node _name="Increment" inputs="x:200.cyc" outputs="x+1:220.cycp1" uid="220" uid_parent="root"/>
+  <Node _name="Select" inputs="t:220.cycp1,s:216.full,f:200.cyc" outputs="s? t\3Af:221.cycout" uid="221" uid_parent="root"/>
+  <Constant _name="m charge" type="string" uid="222" uid_parent="root" value="Charge complete (SOC target reached)." outputs="value:222.value"/>
+  <Constant _name="m discharge" type="string" uid="223" uid_parent="root" value="Discharge complete (SOC target reached)." outputs="value:223.value"/>
+  <Constant _name="m duration" type="string" uid="224" uid_parent="root" value="Stopped: duration elapsed (half-cycle NOT counted)." outputs="value:224.value"/>
+  <Constant _name="m cycle" type="string" uid="225" uid_parent="root" value="Full charge+discharge cycle completed. Cycle Count incremented." outputs="value:225.value"/>
+  <Node _name="Select" inputs="t:222.value,s:203.ischg,f:223.value" outputs="s? t\3Af:226.m1" uid="226" uid_parent="root"/>
+  <Node _name="Select" inputs="t:226.m1,s:206.socdone,f:224.value" outputs="s? t\3Af:227.m2" uid="227" uid_parent="root"/>
+  <Node _name="Select" inputs="t:225.value,s:216.full,f:227.m2" outputs="s? t\3Af:228.msg" uid="228" uid_parent="root"/>
+  <Node _name="Bundle By Name" fields="Cycle Count,Charge Half Done,Discharge Half Done,Status Message" inputs="Cycle Count:221.cycout,Charge Half Done:218.chdout,Discharge Half Done:219.dhdout,Status Message:228.msg,input cluster:100.value" outputs="output cluster:229.doneout" uid="229" uid_parent="root"/>
+  <Node _name="Select" inputs="t:229.doneout,s:210.done,f:100.value" outputs="s? t\3Af:230.out" uid="230" uid_parent="root"/>
+</VI>

@@ -1,0 +1,14 @@
+<VI _name="lv_panel_png.vi" description="Saves the whole front panel of a VI as a PNG file (FP.Get Image, 24-bit) so a layout can be checked without opening the VI.">
+  <Control _name="vi path" type="string" uid="4201" uid_parent="root" value="" outputs="value:4201.v"/>
+  <Control _name="png path" type="path" uid="4202" uid_parent="root" value="" outputs="value:4202.v"/>
+  <Node _name="String To Path" inputs="string:4201.v" outputs="path:4210.path" uid="4210" uid_parent="root"/>
+  <Node _name="Open VI Reference" inputs="vi path:4210.path" outputs="vi reference:4220.vi,error out:4220.err" uid="4220" uid_parent="root"/>
+  <Constant _name="visible area only" type="bool" uid="4221" uid_parent="root" value="FALSE" outputs="value:4221.v"/>
+  <Constant _name="image depth" type="int32" uid="4222" uid_parent="root" value="24" outputs="value:4222.v"/>
+  <Node _name="Invoke Node" inputs="reference:4220.vi,error in (no error):4220.err,visible area only:4221.v,image depth:4222.v" outputs="reference out:,error out:4230.err,image data:4230.img" target="FP.Get Image" type="{LV.VI}" uid="4230" uid_parent="root"/>
+  <Call target="Write PNG File.vi" inputs="error in (no error):4230.err,path to PNG file:4202.v,image data:4230.img" outputs="error out:4240.err,path:" uid="4240" uid_parent="root"/>
+  <Node _name="Close Reference" inputs="reference:4220.vi,error in (no error):4240.err" outputs="error out:4250.err" uid="4250" uid_parent="root"/>
+  <Node _name="Unbundle By Name" fields="code,source" inputs="input cluster:4250.err" outputs="code:4260.code,source:4260.source" uid="4260" uid_parent="root"/>
+  <Indicator _name="code" type="int32" uid="4270" uid_parent="root" value="0" inputs="value:4260.code"/>
+  <Indicator _name="source" type="string" uid="4271" uid_parent="root" value="" inputs="value:4260.source"/>
+</VI>

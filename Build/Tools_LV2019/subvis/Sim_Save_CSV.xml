@@ -1,0 +1,92 @@
+<VI _name="Sim_Save_CSV.vi" description="Writes the log records to a CSV file: one header row, then one row per record. Empty File Path opens a file dialog. The file operation is 'replace or create with confirmation', so an existing file is never overwritten silently. Numbers use a decimal point regardless of locale. Errors are reported in Status Message (43 = cancelled) and the file reference is always closed.">
+  <Control _name="Log Records" conIdx="11" connection="required" type="array{cluster{string.Timestamp,uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}.State,cluster{double.SOC (%),double.Voltage (V),double.Current (A),double.Temperature (degC),double.Run Time (s),double.Elapsed (s),uint32.Cycle Count,uint16{Charge,Discharge}.Active Mode,double.Setpoint Voltage (V),double.Setpoint Current (A),double.Setpoint C-Rate (1/h),double.Setpoint Duration (min),bool.Sim PS Enable,bool.Sim Load Enable,bool.Charge Half Done,bool.Discharge Half Done,bool.Fault,int32.Fault Code,string.Fault Message,string.Fault Time,string.Status Message}.Data}}" uid="100" uid_parent="root" value="[]" outputs="value:100.value"/>
+  <Control _name="File Path (empty = dialog)" conIdx="10" connection="recommended" type="path" uid="101" uid_parent="root" value="" outputs="value:101.value"/>
+  <Indicator _name="Status Message" conIdx="3" connection="recommended" type="string" uid="300" uid_parent="root" value="" inputs="value:463.msg"/>
+  <Indicator _name="Saved?" conIdx="2" connection="recommended" type="bool" uid="301" uid_parent="root" value="false" inputs="value:456.ok"/>
+
+  <Constant _name="comma" type="string" uid="102" uid_parent="root" value="\2C" outputs="value:102.value"/>
+  <Constant _name="quote" type="string" uid="103" uid_parent="root" value="&quot;" outputs="value:103.value"/>
+  <Constant _name="EOL" type="string" uid="104" uid_parent="root" value="\0D\0A" outputs="value:104.value"/>
+  <Constant _name="one" type="string" uid="105" uid_parent="root" value="1" outputs="value:105.value"/>
+  <Constant _name="zero" type="string" uid="106" uid_parent="root" value="0" outputs="value:106.value"/>
+  <Constant _name="%s" type="string" uid="107" uid_parent="root" value="%s" outputs="value:107.value"/>
+  <Constant _name="use system decimal point" type="bool" uid="108" uid_parent="root" value="FALSE" outputs="value:108.value"/>
+  <Constant _name="p2" type="int32" uid="109" uid_parent="root" value="2" outputs="value:109.value"/>
+  <Constant _name="p3" type="int32" uid="110" uid_parent="root" value="3" outputs="value:110.value"/>
+  <Constant _name="p4" type="int32" uid="111" uid_parent="root" value="4" outputs="value:111.value"/>
+
+  <Structure _name="For Loop" count="" maxin="" maxout="" uid="400" uid_parent="root">
+    <Tunnel _id="In1" inputs="value:100.value" mode="index" outputs="value:401.rec" uid="401" uid_parent="400"/>
+    <Tunnel _id="In2" inputs="value:102.value" outputs="value:402.comma" uid="402" uid_parent="400"/>
+    <Tunnel _id="In3" inputs="value:103.value" outputs="value:403.quote" uid="403" uid_parent="400"/>
+    <Tunnel _id="In4" inputs="value:104.value" outputs="value:404.eol" uid="404" uid_parent="400"/>
+    <Tunnel _id="In5" inputs="value:105.value" outputs="value:405.one" uid="405" uid_parent="400"/>
+    <Tunnel _id="In6" inputs="value:106.value" outputs="value:406.zero" uid="406" uid_parent="400"/>
+    <Tunnel _id="In7" inputs="value:107.value" outputs="value:407.fmt" uid="407" uid_parent="400"/>
+    <Tunnel _id="In8" inputs="value:108.value" outputs="value:408.sdp" uid="408" uid_parent="400"/>
+    <Tunnel _id="In9" inputs="value:109.value" outputs="value:409.p2" uid="409" uid_parent="400"/>
+    <Tunnel _id="In10" inputs="value:110.value" outputs="value:4100.p3" uid="4100" uid_parent="400"/>
+    <Tunnel _id="In11" inputs="value:111.value" outputs="value:4110.p4" uid="4110" uid_parent="400"/>
+    <Node _name="Unbundle By Name" fields="Timestamp,State,Data" inputs="input cluster:401.rec" outputs="Timestamp:410.ts,State:410.st,Data:410.data" uid="410" uid_parent="400"/>
+    <Node _name="Unbundle By Name" fields="Run Time (s),Elapsed (s),Active Mode,SOC (%),Voltage (V),Current (A),Temperature (degC),Cycle Count,Sim PS Enable,Sim Load Enable,Fault,Fault Message" inputs="input cluster:410.data" outputs="Run Time (s):411.rt,Elapsed (s):411.el,Active Mode:411.md,SOC (%):411.soc,Voltage (V):411.v,Current (A):411.i,Temperature (degC):411.t,Cycle Count:411.cyc,Sim PS Enable:411.ps,Sim Load Enable:411.ld,Fault:411.f,Fault Message:411.fm" uid="411" uid_parent="400"/>
+    <Node _name="Format Into String" inputs="initial string:,error in:,input 1:410.st,format string:407.fmt" outputs="resulting string:412.s,error out:" uid="412" uid_parent="400"/>
+    <Node _name="Format Into String" inputs="initial string:,error in:,input 1:411.md,format string:407.fmt" outputs="resulting string:413.s,error out:" uid="413" uid_parent="400"/>
+    <Node _name="Number To Fractional String" inputs="use system decimal point (T):408.sdp,precision (6):4100.p3,width (-):,number:411.rt" outputs="F-format string:414.s" uid="414" uid_parent="400"/>
+    <Node _name="Number To Fractional String" inputs="use system decimal point (T):408.sdp,precision (6):4100.p3,width (-):,number:411.el" outputs="F-format string:415.s" uid="415" uid_parent="400"/>
+    <Node _name="Number To Fractional String" inputs="use system decimal point (T):408.sdp,precision (6):409.p2,width (-):,number:411.soc" outputs="F-format string:416.s" uid="416" uid_parent="400"/>
+    <Node _name="Number To Fractional String" inputs="use system decimal point (T):408.sdp,precision (6):4110.p4,width (-):,number:411.v" outputs="F-format string:417.s" uid="417" uid_parent="400"/>
+    <Node _name="Number To Fractional String" inputs="use system decimal point (T):408.sdp,precision (6):4110.p4,width (-):,number:411.i" outputs="F-format string:418.s" uid="418" uid_parent="400"/>
+    <Node _name="Number To Fractional String" inputs="use system decimal point (T):408.sdp,precision (6):409.p2,width (-):,number:411.t" outputs="F-format string:419.s" uid="419" uid_parent="400"/>
+    <Node _name="Number To Decimal String" inputs="width (-):,number:411.cyc" outputs="decimal integer string:420.s" uid="420" uid_parent="400"/>
+    <Node _name="Select" inputs="t:405.one,s:411.ps,f:406.zero" outputs="s? t\3Af:421.s" uid="421" uid_parent="400"/>
+    <Node _name="Select" inputs="t:405.one,s:411.ld,f:406.zero" outputs="s? t\3Af:422.s" uid="422" uid_parent="400"/>
+    <Node _name="Select" inputs="t:405.one,s:411.f,f:406.zero" outputs="s? t\3Af:423.s" uid="423" uid_parent="400"/>
+    <Node _name="Concatenate Strings" inputs="string:410.ts,string:402.comma,string:414.s,string:402.comma,string:415.s,string:402.comma,string:412.s,string:402.comma,string:413.s,string:402.comma,string:416.s,string:402.comma,string:417.s,string:402.comma,string:418.s,string:402.comma,string:419.s,string:402.comma,string:420.s,string:402.comma,string:421.s,string:402.comma,string:422.s,string:402.comma,string:423.s,string:402.comma,string:403.quote,string:411.fm,string:403.quote,string:404.eol" outputs="concatenated string:430.line" uid="430" uid_parent="400"/>
+    <Tunnel _id="Out1" inputs="value:430.line" mode="index" outputs="value:431.lines" uid="431" uid_parent="400"/>
+  </Structure>
+
+  <Constant _name="header" type="string" uid="440" uid_parent="root" value="Timestamp\2CRunTime_s\2CElapsedTime_s\2CState\2CMode\2CSOC_percent\2CVoltage_V\2CCurrent_A\2CTemperature_C\2CCycleCount\2CSimPowerSupplyEnable\2CSimLoadEnable\2CFault\2CFaultMessage" outputs="value:440.value"/>
+  <Node _name="Concatenate Strings" inputs="string:440.value,string:104.value,string:431.lines" outputs="concatenated string:441.text" uid="441" uid_parent="root"/>
+  <Constant _name="operation" type="uint16{open,replace,create,open or create,replace or create,replace or create with confirmation}" uid="442" uid_parent="root" value="5" outputs="value:442.value"/>
+  <Constant _name="prompt" type="string" uid="443" uid_parent="root" value="Save simulation log (.csv)" outputs="value:443.value"/>
+  <Node _name="Empty String/Path?" inputs="string/path:101.value" outputs="empty?:444.empty" uid="444" uid_parent="root"/>
+  <Structure _name="Case Structure" selectin="444.empty" uid="445" uid_parent="root">
+    <Tunnel _id="In1" inputs="value:101.value" uid="4451" uid_parent="445"/>
+    <Tunnel _id="In2" inputs="value:442.value" uid="4452" uid_parent="445"/>
+    <Tunnel _id="In3" inputs="value:443.value" uid="4453" uid_parent="445"/>
+    <CaseFrame selector="True" selectout="" uid="446" uid_parent="445" label="No path given: path input unwired, so LabVIEW shows the file dialog">
+      <Tunnel _id="In1" outputs="value:" uid="4461" uid_parent="446"/>
+      <Tunnel _id="In2" outputs="value:4462.op" uid="4462" uid_parent="446"/>
+      <Tunnel _id="In3" outputs="value:4463.pr" uid="4463" uid_parent="446"/>
+      <Node _name="Open/Create/Replace File" inputs="disable buffering (F):,prompt:4463.pr,error in:,access (0\3Aread/write):,operation (0\3Aopen):4462.op,file path (use dialog):" outputs="error out:4464.err,cancelled:,refnum out:4464.ref" uid="4464" uid_parent="446"/>
+      <Tunnel _id="Out1" inputs="value:4464.ref" uid="4465" uid_parent="446"/>
+      <Tunnel _id="Out2" inputs="value:4464.err" uid="4466" uid_parent="446"/>
+    </CaseFrame>
+    <CaseFrame selector="False" selectout="" uid="447" uid_parent="445" label="Path given (tests, automation)">
+      <Tunnel _id="In1" outputs="value:4471.p" uid="4471" uid_parent="447"/>
+      <Tunnel _id="In2" outputs="value:4472.op" uid="4472" uid_parent="447"/>
+      <Tunnel _id="In3" outputs="value:4473.pr" uid="4473" uid_parent="447"/>
+      <Node _name="Open/Create/Replace File" inputs="disable buffering (F):,prompt:4473.pr,error in:,access (0\3Aread/write):,operation (0\3Aopen):4472.op,file path (use dialog):4471.p" outputs="error out:4474.err,cancelled:,refnum out:4474.ref" uid="4474" uid_parent="447"/>
+      <Tunnel _id="Out1" inputs="value:4474.ref" uid="4475" uid_parent="447"/>
+      <Tunnel _id="Out2" inputs="value:4474.err" uid="4476" uid_parent="447"/>
+    </CaseFrame>
+    <Tunnel _id="Out1" outputs="value:450.refnum out" uid="4481" uid_parent="445"/>
+    <Tunnel _id="Out2" outputs="value:450.error out" uid="4482" uid_parent="445"/>
+  </Structure>
+  <Node _name="Write to Text File" inputs="prompt (Choose or enter file path):,error in:450.error out,text:441.text,file (use dialog):450.refnum out" outputs="error out:451.error out,cancelled:,refnum out:451.refnum out" uid="451" uid_parent="root"/>
+  <Node _name="Close File" inputs="error in:451.error out,refnum:451.refnum out" outputs="error out:452.error out,path:452.path" uid="452" uid_parent="root"/>
+  <Node _name="Unbundle By Name" fields="code,source" inputs="input cluster:452.error out" outputs="code:453.code,source:453.source" uid="453" uid_parent="root"/>
+  <Node _name="Path To String" inputs="path:452.path" outputs="string:454.path" uid="454" uid_parent="root"/>
+  <Node _name="Equal To 0?" inputs="x:453.code" outputs="x = 0?:456.ok" uid="456" uid_parent="root"/>
+  <Constant _name="43" type="int32" uid="457" uid_parent="root" value="43" outputs="value:457.value"/>
+  <Node _name="Equal?" inputs="x:453.code,y:457.value" outputs="x = y?:458.cancel" uid="458" uid_parent="root"/>
+  <Constant _name="ok prefix" type="string" uid="459" uid_parent="root" value="Saved successfully: " outputs="value:459.value"/>
+  <Node _name="Concatenate Strings" inputs="string:459.value,string:454.path" outputs="concatenated string:460.okmsg" uid="460" uid_parent="root"/>
+  <Node _name="Number To Decimal String" inputs="width (-):,number:453.code" outputs="decimal integer string:461.code" uid="461" uid_parent="root"/>
+  <Constant _name="fail prefix" type="string" uid="462" uid_parent="root" value="Save FAILED (error " outputs="value:462.value"/>
+  <Constant _name="fail mid" type="string" uid="464" uid_parent="root" value="): " outputs="value:464.value"/>
+  <Node _name="Concatenate Strings" inputs="string:462.value,string:461.code,string:464.value,string:453.source" outputs="concatenated string:465.failmsg" uid="465" uid_parent="root"/>
+  <Constant _name="cancel msg" type="string" uid="466" uid_parent="root" value="Save cancelled." outputs="value:466.value"/>
+  <Node _name="Select" inputs="t:466.value,s:458.cancel,f:465.failmsg" outputs="s? t\3Af:467.m1" uid="467" uid_parent="root"/>
+  <Node _name="Select" inputs="t:460.okmsg,s:456.ok,f:467.m1" outputs="s? t\3Af:463.msg" uid="463" uid_parent="root"/>
+</VI>

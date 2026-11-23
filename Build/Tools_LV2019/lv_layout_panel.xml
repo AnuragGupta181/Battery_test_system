@@ -1,0 +1,93 @@
+<VI _name="lv_layout_panel.vi" description="Layout helper. Opens a VI, sets its front panel colour, then for every panel control whose label is in Labels moves it to (Left,Top), sets its label text colour, and resizes it when Width is above 0. Saves the VI in place. Unknown labels are left where they are. Codes returns one error code per panel control (0 = fine).">
+  <Control _name="vi path" type="string" uid="4201" uid_parent="root" value="" outputs="value:4201.v"/>
+  <Control _name="panel color" type="uint32" uid="4202" uid_parent="root" value="2500134" outputs="value:4202.v"/>
+  <Control _name="label color" type="uint32" uid="4203" uid_parent="root" value="16777215" outputs="value:4203.v"/>
+  <Control _name="Labels" type="array{string}" uid="4204" uid_parent="root" value="[SIMULATION MODE,Current State,DAQ CONNECTED?,Power Supply Connected?,DC Load Connected?,Operation Mode,Start,Stop,Reset Fault,Save,Close,Charge Settings,Discharge Settings,SOC (%),Elapsed Time (s),Cycle Count,DC Voltage (V),DC Current (A),Temperature (degC),Sim Power Supply Output,Sim DC Load Output,Fault,Status Message,Fault Message,DC Voltage Graph,DC Current Graph,Temperature Graph,Simulation Settings (DEMO ONLY)]" outputs="value:4204.v"/>
+  <Control _name="Lefts" type="array{int32}" uid="4205" uid_parent="root" value="[20,760,1010,1010,1010,20,20,110,200,20,110,20,20,300,420,560,300,420,560,300,480,640,300,300,730,730,730,20]" outputs="value:4205.v"/>
+  <Control _name="Tops" type="array{int32}" uid="4206" uid_parent="root" value="[10,12,10,40,70,70,120,120,120,175,175,235,400,70,70,70,130,130,130,190,190,190,245,345,100,345,590,570]" outputs="value:4206.v"/>
+  <Control _name="Widths" type="array{int32}" uid="4207" uid_parent="root" value="[720,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,400,400,560,560,560,0]" outputs="value:4207.v"/>
+  <Control _name="Heights" type="array{int32}" uid="4208" uid_parent="root" value="[24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,70,40,230,230,230,0]" outputs="value:4208.v"/>
+
+  <Node _name="String To Path" inputs="string:4201.v" outputs="path:4210.path" uid="4210" uid_parent="root"/>
+  <Node _name="Open VI Reference" inputs="vi path:4210.path" outputs="vi reference:4220.vi,error out:4220.err" uid="4220" uid_parent="root"/>
+  <Node _name="Property Node" fields="read+Front Panel" inputs="reference:4220.vi,error in (no error):4220.err" outputs="Front Panel:4221.panel,reference out:,error out:4221.err" type="{LV.VI}" uid="4221" uid_parent="root"/>
+  <Node _name="Property Node" fields="write+Color" inputs="reference:4221.panel,error in (no error):4221.err,Color:4202.v" outputs="reference out:,error out:4222.err" type="{LV.Panel}" uid="4222" uid_parent="root"/>
+  <Node _name="Property Node" fields="read+Controls[]" inputs="reference:4221.panel,error in (no error):4222.err" outputs="Controls[]:4223.ctrls,reference out:,error out:4223.err" type="{LV.Panel}" uid="4223" uid_parent="root"/>
+  <Constant _name="position" type="cluster{int32.Left,int32.Top}" uid="4224" uid_parent="root" value="[0,0]" outputs="value:4224.v"/>
+  <Constant _name="area" type="cluster{int32.Area Width,int32.Area Height}" uid="4225" uid_parent="root" value="[0,0]" outputs="value:4225.v"/>
+
+  <Node _name="Array Size" inputs="array:4223.ctrls" outputs="size(s):4226.n" uid="4226" uid_parent="root"/>
+  <Structure _name="For Loop" count="4300.i" maxin="4226.n" maxout="" uid="4300" uid_parent="root">
+    <Tunnel _id="In1" inputs="value:4223.ctrls" outputs="value:4299.all" uid="4299" uid_parent="4300"/>
+    <Node _name="Index Array" inputs="array:4299.all,index:4300.i" outputs="element:4301.el" uid="4301" uid_parent="4300"/>
+    <Tunnel _id="In2" inputs="value:4204.v" outputs="value:4302.lab" uid="4302" uid_parent="4300"/>
+    <Tunnel _id="In3" inputs="value:4205.v" outputs="value:4303.l" uid="4303" uid_parent="4300"/>
+    <Tunnel _id="In4" inputs="value:4206.v" outputs="value:4304.t" uid="4304" uid_parent="4300"/>
+    <Tunnel _id="In5" inputs="value:4207.v" outputs="value:4305.w" uid="4305" uid_parent="4300"/>
+    <Tunnel _id="In6" inputs="value:4208.v" outputs="value:4306.h" uid="4306" uid_parent="4300"/>
+    <Tunnel _id="In7" inputs="value:4203.v" outputs="value:4307.lc" uid="4307" uid_parent="4300"/>
+    <Tunnel _id="In8" inputs="value:4224.v" outputs="value:4308.pos0" uid="4308" uid_parent="4300"/>
+    <Tunnel _id="In9" inputs="value:4225.v" outputs="value:4309.area0" uid="4309" uid_parent="4300"/>
+    <Node _name="Property Node" fields="read+Label,read+Position" inputs="reference:4301.el,error in (no error):" outputs="Label:4309.lbl,Position:4310.oldpos,reference out:4310.ref,error out:4309.err" type="{LV.Control}" uid="4310" uid_parent="4300"/>
+    <Node _name="Property Node" fields="read+Text,write+Text Colors\3AText Color" type="{LV.Text}" inputs="reference:4309.lbl,error in (no error):4309.err,Text Colors\3AText Color:4307.lc" outputs="Text:4310.name,reference out:,error out:4310.err" uid="4325" uid_parent="4300"/>
+    <Node _name="Search 1D Array" inputs="1D array:4302.lab,element:4310.name" outputs="index of element:4311.idx" uid="4311" uid_parent="4300"/>
+    <Node _name="Greater Or Equal To 0?" inputs="x:4311.idx" outputs="x &gt;= 0?:4312.found" uid="4312" uid_parent="4300"/>
+    <Node _name="Index Array" inputs="array:4303.l,index:4311.idx" outputs="element:4313.left" uid="4313" uid_parent="4300"/>
+    <Node _name="Index Array" inputs="array:4304.t,index:4311.idx" outputs="element:4314.top" uid="4314" uid_parent="4300"/>
+    <Node _name="Index Array" inputs="array:4305.w,index:4311.idx" outputs="element:4315.w" uid="4315" uid_parent="4300"/>
+    <Node _name="Index Array" inputs="array:4306.h,index:4311.idx" outputs="element:4316.h" uid="4316" uid_parent="4300"/>
+    <Node _name="Bundle By Name" fields="Left,Top" inputs="Left:4313.left,Top:4314.top,input cluster:4308.pos0" outputs="output cluster:4317.newpos" uid="4317" uid_parent="4300"/>
+    <Node _name="Select" inputs="t:4317.newpos,s:4312.found,f:4310.oldpos" outputs="s? t\3Af:4318.pos" uid="4318" uid_parent="4300"/>
+    <Node _name="Property Node" fields="write+Position" inputs="reference:4310.ref,error in (no error):4310.err,Position:4318.pos" outputs="reference out:4319.ref,error out:4319.err" type="{LV.Control}" uid="4319" uid_parent="4300"/>
+    <Node _name="Greater Than 0?" inputs="x:4315.w" outputs="x &gt; 0?:4320.hasw" uid="4320" uid_parent="4300"/>
+    <Node _name="And" inputs="x:4312.found,y:4320.hasw" outputs="x .and. y?:4321.resize" uid="4321" uid_parent="4300"/>
+    <Structure _name="Case Structure" selectin="4321.resize" uid="4330" uid_parent="4300">
+      <Tunnel _id="In1" inputs="value:4319.ref" uid="4331" uid_parent="4330"/>
+      <Tunnel _id="In2" inputs="value:4319.err" uid="4332" uid_parent="4330"/>
+      <Tunnel _id="In3" inputs="value:4315.w" uid="4333" uid_parent="4330"/>
+      <Tunnel _id="In4" inputs="value:4316.h" uid="4334" uid_parent="4330"/>
+      <Tunnel _id="In5" inputs="value:4309.area0" uid="4335" uid_parent="4330"/>
+      <CaseFrame selector="True" selectout="" uid="4340" uid_parent="4330">
+        <Tunnel _id="In1" outputs="value:4341.ref" uid="4341" uid_parent="4340"/>
+        <Tunnel _id="In2" outputs="value:4342.err" uid="4342" uid_parent="4340"/>
+        <Tunnel _id="In3" outputs="value:4343.w" uid="4343" uid_parent="4340"/>
+        <Tunnel _id="In4" outputs="value:4344.h" uid="4344" uid_parent="4340"/>
+        <Tunnel _id="In5" outputs="value:4345.a" uid="4345" uid_parent="4340"/>
+        <Node _name="Bundle By Name" fields="Area Width,Area Height" inputs="Area Width:4343.w,Area Height:4344.h,input cluster:4345.a" outputs="output cluster:4346.b" uid="4346" uid_parent="4340"/>
+        <Node _name="Property Node" fields="write+Bounds" inputs="reference:4341.ref,error in (no error):4342.err,Bounds:4346.b" outputs="reference out:,error out:4347.err" type="{LV.Control}" uid="4347" uid_parent="4340"/>
+        <Tunnel _id="Out1" inputs="value:4347.err" uid="4348" uid_parent="4340"/>
+      </CaseFrame>
+      <CaseFrame selector="False" selectout="" uid="4350" uid_parent="4330">
+        <Tunnel _id="In1" outputs="value:" uid="4351" uid_parent="4350"/>
+        <Tunnel _id="In2" outputs="value:4352.err" uid="4352" uid_parent="4350"/>
+        <Tunnel _id="In3" outputs="value:" uid="4353" uid_parent="4350"/>
+        <Tunnel _id="In4" outputs="value:" uid="4354" uid_parent="4350"/>
+        <Tunnel _id="In5" outputs="value:" uid="4355" uid_parent="4350"/>
+        <Tunnel _id="Out1" inputs="value:4352.err" uid="4356" uid_parent="4350"/>
+      </CaseFrame>
+      <Tunnel _id="Out1" outputs="value:4360.err" uid="4360" uid_parent="4330"/>
+    </Structure>
+    <Node _name="Unbundle By Name" fields="code" inputs="input cluster:4360.err" outputs="code:4361.code" uid="4361" uid_parent="4300"/>
+    <Node _name="Unbundle By Name" fields="code" inputs="input cluster:4310.err" outputs="code:4362.rcode" uid="4362" uid_parent="4300"/>
+    <Node _name="Number To Decimal String" inputs="width (-):,number:4311.idx" outputs="decimal integer string:4363.s" uid="4363" uid_parent="4300"/>
+    <Node _name="Number To Decimal String" inputs="width (-):,number:4361.code" outputs="decimal integer string:4364.s" uid="4364" uid_parent="4300"/>
+    <Node _name="Number To Decimal String" inputs="width (-):,number:4362.rcode" outputs="decimal integer string:4365.s" uid="4365" uid_parent="4300"/>
+    <Constant _name="sep" type="string" uid="4366" uid_parent="4300" value=" | " outputs="value:4366.v"/>
+    <Constant _name="nl" type="string" uid="4367" uid_parent="4300" value="\0D\0A" outputs="value:4367.v"/>
+    <Constant _name="q" type="string" uid="4368" uid_parent="4300" value="'" outputs="value:4368.v"/>
+    <Node _name="Concatenate Strings" inputs="string:4368.v,string:4310.name,string:4368.v,string:4366.v,string:4363.s,string:4366.v,string:4365.s,string:4366.v,string:4364.s,string:4367.v" outputs="concatenated string:4369.line" uid="4369" uid_parent="4300"/>
+    <Tunnel _id="Out1" inputs="value:4361.code" mode="index" outputs="value:4370.codes" uid="4370" uid_parent="4300"/>
+    <Tunnel _id="Out2" inputs="value:4310.name" mode="index" outputs="value:4371.names" uid="4371" uid_parent="4300"/>
+    <Tunnel _id="Out3" inputs="value:4369.line" mode="index" outputs="value:4372.lines" uid="4372" uid_parent="4300"/>
+  </Structure>
+
+  <Node _name="Invoke Node" inputs="reference:4220.vi,error in (no error):4223.err,Path to saved file:,Save a Copy:,Without Diagram:" outputs="reference out:,error out:4380.err" target="Save.Instrument" type="{LV.VI}" uid="4380" uid_parent="root"/>
+  <Node _name="Close Reference" inputs="reference:4220.vi,error in (no error):4380.err" outputs="error out:4381.err" uid="4381" uid_parent="root"/>
+  <Node _name="Unbundle By Name" fields="code,source" inputs="input cluster:4381.err" outputs="code:4382.code,source:4382.source" uid="4382" uid_parent="root"/>
+  <Node _name="Concatenate Strings" inputs="string:4372.lines" outputs="concatenated string:4395.rep" uid="4395" uid_parent="root"/>
+  <Indicator _name="report" type="string" uid="4394" uid_parent="root" value="" inputs="value:4395.rep"/>
+  <Indicator _name="Codes" type="array{int32}" uid="4390" uid_parent="root" value="[]" inputs="value:4370.codes"/>
+  <Indicator _name="Names" type="array{string}" uid="4391" uid_parent="root" value="[]" inputs="value:4371.names"/>
+  <Indicator _name="code" type="int32" uid="4392" uid_parent="root" value="0" inputs="value:4382.code"/>
+  <Indicator _name="source" type="string" uid="4393" uid_parent="root" value="" inputs="value:4382.source"/>
+</VI>

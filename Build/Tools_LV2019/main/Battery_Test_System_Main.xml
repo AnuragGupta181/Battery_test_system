@@ -1,0 +1,342 @@
+<VI _name="Battery_Test_System_Main.vi" description="Battery Test System - SIMULATION MODE. One While Loop: Event Structure (UI commands, timeout = UI Update Interval) -> state Case Structure (INIT, IDLE/STOPPED/FAULT, CHARGING/DISCHARGING completion, Default safe fallback) -> Sim_Update_Model (simulated sensor source and output interlock) -> Sim_Check_Safety (latched faults) -> bounded log -> XY graphs and indicators. dt is measured with Tick Count and clamped to Max dt. No physical I/O anywhere. All limits are DEMONSTRATION values only.">
+  <Indicator _name="SIMULATION MODE" type="string" uid="20" uid_parent="root" value="" inputs="value:21.value"/>
+  <Constant _name="banner" type="string" uid="21" uid_parent="root" value="SIMULATION MODE - all values are simulated. No hardware is connected." outputs="value:21.value"/>
+  <Constant _name="hardware not connected" type="bool" uid="22" uid_parent="root" value="FALSE" outputs="value:22.value"/>
+  <Indicator _name="DAQ CONNECTED?" type="bool" uid="23" uid_parent="root" value="false" inputs="value:22.value"/>
+  <Indicator _name="Power Supply Connected?" type="bool" uid="24" uid_parent="root" value="false" inputs="value:22.value"/>
+  <Indicator _name="DC Load Connected?" type="bool" uid="25" uid_parent="root" value="false" inputs="value:22.value"/>
+  <Constant _name="INIT" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="30" uid_parent="root" value="0" outputs="value:30.value"/>
+  <Constant _name="Sim Data init" type="cluster{double.SOC (%),double.Voltage (V),double.Current (A),double.Temperature (degC),double.Run Time (s),double.Elapsed (s),uint32.Cycle Count,uint16{Charge,Discharge}.Active Mode,double.Setpoint Voltage (V),double.Setpoint Current (A),double.Setpoint C-Rate (1/h),double.Setpoint Duration (min),bool.Sim PS Enable,bool.Sim Load Enable,bool.Charge Half Done,bool.Discharge Half Done,bool.Fault,int32.Fault Code,string.Fault Message,string.Fault Time,string.Status Message}" uid="31" uid_parent="root" value="[0,0,0,0,0,0,0,0,0,0,0,0,false,false,false,false,false,0,,,]" outputs="value:31.value"/>
+  <Node _name="Tick Count (ms)" outputs="millisecond timer value:32.t0" uid="32" uid_parent="root"/>
+  <Constant _name="empty log" type="array{cluster{string.Timestamp,uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}.State,cluster{double.SOC (%),double.Voltage (V),double.Current (A),double.Temperature (degC),double.Run Time (s),double.Elapsed (s),uint32.Cycle Count,uint16{Charge,Discharge}.Active Mode,double.Setpoint Voltage (V),double.Setpoint Current (A),double.Setpoint C-Rate (1/h),double.Setpoint Duration (min),bool.Sim PS Enable,bool.Sim Load Enable,bool.Charge Half Done,bool.Discharge Half Done,bool.Fault,int32.Fault Code,string.Fault Message,string.Fault Time,string.Status Message}.Data}}" uid="33" uid_parent="root" value="[]" outputs="value:33.value"/>
+
+  <Structure _name="While Loop" count="" uid="100" uid_parent="root">
+    <ShiftReg uid="101" uid_parent="100">
+      <Left inputs="value:30.value" outputs="value:102.st" uid="9011" uid_parent="101"/>
+      <Right inputs="value:181.fs" outputs="value:" uid="9012" uid_parent="101"/>
+    </ShiftReg>
+    <ShiftReg uid="103" uid_parent="100">
+      <Left inputs="value:31.value" outputs="value:104.sd" uid="1031" uid_parent="103"/>
+      <Right inputs="value:176.sd" outputs="value:" uid="1032" uid_parent="103"/>
+    </ShiftReg>
+    <ShiftReg uid="105" uid_parent="100">
+      <Left inputs="value:32.t0" outputs="value:106.last" uid="1051" uid_parent="105"/>
+      <Right inputs="value:120.now" outputs="value:" uid="1052" uid_parent="105"/>
+    </ShiftReg>
+    <ShiftReg uid="107" uid_parent="100">
+      <Left inputs="value:33.value" outputs="value:108.log" uid="1071" uid_parent="107"/>
+      <Right inputs="value:194.sub" outputs="value:" uid="1072" uid_parent="107"/>
+    </ShiftReg>
+
+    <Control _name="Simulation Settings (DEMO ONLY)" type="cluster{int32.UI Update Interval (ms),double.Max dt (s),double.Initial SOC (%),double.Rest Voltage (V),double.Ambient Temperature (degC),double.Voltage Time Constant (s),double.Current Time Constant (s),double.Thermal Time Constant (s),double.Heating Coefficient (degC/s per A^2),double.SOC Speed Factor,double.Charge Complete SOC (%),double.Discharge Complete SOC (%),double.Max Voltage Limit (V),double.Max Current Limit (A),double.Max Temperature Limit (degC),double.Max C-Rate (1/h),double.Max Duration (min),int32.History Length (samples),bool.Inject E-Stop,bool.Inject Overvoltage,bool.Inject Overcurrent,bool.Inject Overtemperature}" uid="110" uid_parent="100" value="[200,1,50,12,25,5,1,120,0.002,1,100,0,15,10,45,5,600,3000,false,false,false,false]" outputs="value:110.value"/>
+    <Control _name="Operation Mode" type="uint16{Charge,Discharge}" uid="111" uid_parent="100" value="0" outputs="value:111.value"/>
+    <Node _name="Unbundle By Name" fields="UI Update Interval (ms),Max dt (s),History Length (samples)" inputs="input cluster:110.value" outputs="UI Update Interval (ms):112.ui,Max dt (s):112.maxdt,History Length (samples):112.hist" uid="112" uid_parent="100"/>
+
+    <Node _name="Tick Count (ms)" outputs="millisecond timer value:120.now" uid="120" uid_parent="100"/>
+    <Node _name="Subtract" inputs="x:120.now,y:106.last" outputs="x-y:121.d" uid="121" uid_parent="100"/>
+    <Node _name="To Double Precision Float" inputs="number:121.d" outputs="double precision float:122.dd" uid="122" uid_parent="100"/>
+    <Constant _name="ms per s" type="double" uid="123" uid_parent="100" value="1000" outputs="value:123.value"/>
+    <Node _name="Divide" inputs="x:122.dd,y:123.value" outputs="x/y:124.dts" uid="124" uid_parent="100"/>
+    <Constant _name="0 s" type="double" uid="125" uid_parent="100" value="0" outputs="value:125.value"/>
+    <Node _name="In Range and Coerce" includeLow="true" includeHigh="true" inputs="lower limit:125.value,x:124.dts,upper limit:112.maxdt" outputs="In Range?:,coerced(x):126.dt" uid="126" uid_parent="100"/>
+
+    <Constant _name="CHARGING" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="127" uid_parent="100" value="2" outputs="value:127.value"/>
+    <Constant _name="DISCHARGING" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="128" uid_parent="100" value="3" outputs="value:128.value"/>
+    <Constant _name="FAULT" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="129" uid_parent="100" value="5" outputs="value:129.value"/>
+    <Node _name="Equal?" inputs="x:102.st,y:127.value" outputs="x = y?:131.a" uid="131" uid_parent="100"/>
+    <Node _name="Equal?" inputs="x:102.st,y:128.value" outputs="x = y?:132.b" uid="132" uid_parent="100"/>
+    <Node _name="Or" inputs="x:131.a,y:132.b" outputs="x .or. y?:133.run" uid="133" uid_parent="100"/>
+    <Node _name="Equal?" inputs="x:102.st,y:129.value" outputs="x = y?:134.flt" uid="134" uid_parent="100"/>
+
+    <Structure _name="Event Structure" timeoutin="112.ui" uid="140" uid_parent="100">
+      <Tunnel _id="In1" inputs="value:102.st" uid="1401" uid_parent="140"/>
+      <Tunnel _id="In2" inputs="value:104.sd" uid="1402" uid_parent="140"/>
+      <Tunnel _id="In3" inputs="value:111.value" uid="1403" uid_parent="140"/>
+      <Tunnel _id="In4" inputs="value:110.value" uid="1404" uid_parent="140"/>
+      <Tunnel _id="In5" inputs="value:108.log" uid="1405" uid_parent="140"/>
+      <Tunnel _id="In6" inputs="value:133.run" uid="1406" uid_parent="140"/>
+      <Tunnel _id="In7" inputs="value:134.flt" uid="1407" uid_parent="140"/>
+
+      <CaseFrame selector=" Timeout " uid="1000" uid_parent="140" label="Timeout: no command, run one simulation step">
+        <Tunnel _id="In1" outputs="value:1001.v" uid="1001" uid_parent="1000"/>
+        <Tunnel _id="In2" outputs="value:1002.v" uid="1002" uid_parent="1000"/>
+        <Tunnel _id="In3" outputs="value:" uid="1003" uid_parent="1000"/>
+        <Tunnel _id="In4" outputs="value:" uid="1004" uid_parent="1000"/>
+        <Tunnel _id="In5" outputs="value:" uid="1005" uid_parent="1000"/>
+        <Tunnel _id="In6" outputs="value:" uid="1006" uid_parent="1000"/>
+        <Tunnel _id="In7" outputs="value:" uid="1007" uid_parent="1000"/>
+        <Constant _name="keep running" type="bool" uid="1010" uid_parent="1000" value="FALSE" outputs="value:1010.value"/>
+        <Tunnel _id="Out1" inputs="value:1001.v" uid="1011" uid_parent="1000"/>
+        <Tunnel _id="Out2" inputs="value:1002.v" uid="1012" uid_parent="1000"/>
+        <Tunnel _id="Out3" inputs="value:1010.value" uid="1013" uid_parent="1000"/>
+      </CaseFrame>
+
+      <CaseFrame selector=" &quot;Start&quot;\3A Value Change " uid="2000" uid_parent="140" label="Start: validate the selected mode's setpoints, then CHARGING or DISCHARGING">
+        <Tunnel _id="In1" outputs="value:2001.v" uid="2001" uid_parent="2000"/>
+        <Tunnel _id="In2" outputs="value:2002.v" uid="2002" uid_parent="2000"/>
+        <Tunnel _id="In3" outputs="value:2003.v" uid="2003" uid_parent="2000"/>
+        <Tunnel _id="In4" outputs="value:2004.v" uid="2004" uid_parent="2000"/>
+        <Tunnel _id="In5" outputs="value:" uid="2005" uid_parent="2000"/>
+        <Tunnel _id="In6" outputs="value:2006.run" uid="2006" uid_parent="2000"/>
+        <Tunnel _id="In7" outputs="value:2007.flt" uid="2007" uid_parent="2000"/>
+        <Control _name="Start" type="bool" style="latched" uid="2010" uid_parent="2000" value="false" outputs="value:"/>
+        <Control _name="Charge Settings" type="cluster{double.Voltage (V),double.Current (A),double.C-Rate (1/h),double.Duration (min)}" uid="2011" uid_parent="2000" value="[14,5,1,10]" outputs="value:2011.value"/>
+        <Control _name="Discharge Settings" type="cluster{double.Voltage (V),double.Current (A),double.C-Rate (1/h),double.Duration (min)}" uid="2012" uid_parent="2000" value="[11,5,1,10]" outputs="value:2012.value"/>
+        <Constant _name="Charge" type="uint16{Charge,Discharge}" uid="2013" uid_parent="2000" value="0" outputs="value:2013.value"/>
+        <Node _name="Equal?" inputs="x:2003.v,y:2013.value" outputs="x = y?:2014.chg" uid="2014" uid_parent="2000"/>
+        <Node _name="Select" inputs="t:2011.value,s:2014.chg,f:2012.value" outputs="s? t\3Af:2015.sp" uid="2015" uid_parent="2000"/>
+        <Constant _name="CHARGING" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="2017" uid_parent="2000" value="2" outputs="value:2017.value"/>
+        <Constant _name="DISCHARGING" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="2018" uid_parent="2000" value="3" outputs="value:2018.value"/>
+        <Node _name="Select" inputs="t:2017.value,s:2014.chg,f:2018.value" outputs="s? t\3Af:2016.req" uid="2016" uid_parent="2000"/>
+        <Node _name="Unbundle By Name" fields="Voltage (V),Current (A),C-Rate (1/h),Duration (min)" inputs="input cluster:2015.sp" outputs="Voltage (V):2019.v,Current (A):2019.i,C-Rate (1/h):2019.c,Duration (min):2019.d" uid="2019" uid_parent="2000"/>
+        <Call target="Sim_Validate_Setpoints.vi" inputs="Voltage (V):2019.v,Current (A):2019.i,C-Rate (1/h):2019.c,Duration (min):2019.d,Settings:2004.v" outputs="Valid?:2020.ok,Message:2020.msg" uid="2020" uid_parent="2000"/>
+        <Constant _name="started format" type="string" uid="2021" uid_parent="2000" value="%s started (SIMULATED)." outputs="value:2021.value"/>
+        <Node _name="Format Into String" inputs="initial string:,error in:,input 1:2003.v,format string:2021.value" outputs="resulting string:2022.s,error out:" uid="2022" uid_parent="2000"/>
+        <Constant _name="elapsed reset" type="double" uid="2023" uid_parent="2000" value="0" outputs="value:2023.value"/>
+        <Node _name="Bundle By Name" fields="Active Mode,Setpoint Voltage (V),Setpoint Current (A),Setpoint C-Rate (1/h),Setpoint Duration (min),Elapsed (s),Status Message" inputs="Active Mode:2003.v,Setpoint Voltage (V):2019.v,Setpoint Current (A):2019.i,Setpoint C-Rate (1/h):2019.c,Setpoint Duration (min):2019.d,Elapsed (s):2023.value,Status Message:2022.s,input cluster:2002.v" outputs="output cluster:2024.ok" uid="2024" uid_parent="2000"/>
+        <Node _name="Bundle By Name" fields="Status Message" inputs="Status Message:2020.msg,input cluster:2002.v" outputs="output cluster:2025.bad" uid="2025" uid_parent="2000"/>
+        <Constant _name="msg running" type="string" uid="2026" uid_parent="2000" value="Already running - press Stop first." outputs="value:2026.value"/>
+        <Node _name="Bundle By Name" fields="Status Message" inputs="Status Message:2026.value,input cluster:2002.v" outputs="output cluster:2027.run" uid="2027" uid_parent="2000"/>
+        <Constant _name="msg fault" type="string" uid="2028" uid_parent="2000" value="Start blocked: fault latched. Remove the cause and press Reset Fault." outputs="value:2028.value"/>
+        <Node _name="Bundle By Name" fields="Status Message" inputs="Status Message:2028.value,input cluster:2002.v" outputs="output cluster:2029.flt" uid="2029" uid_parent="2000"/>
+        <Node _name="Select" inputs="t:2024.ok,s:2020.ok,f:2025.bad" outputs="s? t\3Af:2030.a" uid="2030" uid_parent="2000"/>
+        <Node _name="Select" inputs="t:2029.flt,s:2007.flt,f:2030.a" outputs="s? t\3Af:2031.b" uid="2031" uid_parent="2000"/>
+        <Node _name="Select" inputs="t:2027.run,s:2006.run,f:2031.b" outputs="s? t\3Af:2032.data" uid="2032" uid_parent="2000"/>
+        <Node _name="Not" inputs="x:2006.run" outputs=".not. x?:2033.nr" uid="2033" uid_parent="2000"/>
+        <Node _name="Not" inputs="x:2007.flt" outputs=".not. x?:2034.nf" uid="2034" uid_parent="2000"/>
+        <Node _name="And" inputs="x:2033.nr,y:2034.nf" outputs="x .and. y?:2035.free" uid="2035" uid_parent="2000"/>
+        <Node _name="And" inputs="x:2035.free,y:2020.ok" outputs="x .and. y?:2036.go" uid="2036" uid_parent="2000"/>
+        <Node _name="Select" inputs="t:2016.req,s:2036.go,f:2001.v" outputs="s? t\3Af:2037.state" uid="2037" uid_parent="2000"/>
+        <Constant _name="keep running" type="bool" uid="2038" uid_parent="2000" value="FALSE" outputs="value:2038.value"/>
+        <Tunnel _id="Out1" inputs="value:2037.state" uid="2041" uid_parent="2000"/>
+        <Tunnel _id="Out2" inputs="value:2032.data" uid="2042" uid_parent="2000"/>
+        <Tunnel _id="Out3" inputs="value:2038.value" uid="2043" uid_parent="2000"/>
+      </CaseFrame>
+
+      <CaseFrame selector=" &quot;Stop&quot;\3A Value Change " uid="3000" uid_parent="140" label="Stop: running operation -> STOPPED (outputs OFF, not a completed half-cycle)">
+        <Tunnel _id="In1" outputs="value:3001.v" uid="3001" uid_parent="3000"/>
+        <Tunnel _id="In2" outputs="value:3002.v" uid="3002" uid_parent="3000"/>
+        <Tunnel _id="In3" outputs="value:" uid="3003" uid_parent="3000"/>
+        <Tunnel _id="In4" outputs="value:" uid="3004" uid_parent="3000"/>
+        <Tunnel _id="In5" outputs="value:" uid="3005" uid_parent="3000"/>
+        <Tunnel _id="In6" outputs="value:3006.run" uid="3006" uid_parent="3000"/>
+        <Tunnel _id="In7" outputs="value:" uid="3007" uid_parent="3000"/>
+        <Control _name="Stop" type="bool" style="latched" uid="3010" uid_parent="3000" value="false" outputs="value:"/>
+        <Constant _name="STOPPED" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="3011" uid_parent="3000" value="4" outputs="value:3011.value"/>
+        <Node _name="Select" inputs="t:3011.value,s:3006.run,f:3001.v" outputs="s? t\3Af:3012.state" uid="3012" uid_parent="3000"/>
+        <Constant _name="msg stopped" type="string" uid="3013" uid_parent="3000" value="Stopped by operator - outputs OFF (half-cycle not counted)." outputs="value:3013.value"/>
+        <Constant _name="msg idle" type="string" uid="3014" uid_parent="3000" value="Nothing running." outputs="value:3014.value"/>
+        <Node _name="Select" inputs="t:3013.value,s:3006.run,f:3014.value" outputs="s? t\3Af:3015.msg" uid="3015" uid_parent="3000"/>
+        <Node _name="Bundle By Name" fields="Status Message" inputs="Status Message:3015.msg,input cluster:3002.v" outputs="output cluster:3016.data" uid="3016" uid_parent="3000"/>
+        <Constant _name="keep running" type="bool" uid="3017" uid_parent="3000" value="FALSE" outputs="value:3017.value"/>
+        <Tunnel _id="Out1" inputs="value:3012.state" uid="3021" uid_parent="3000"/>
+        <Tunnel _id="Out2" inputs="value:3016.data" uid="3022" uid_parent="3000"/>
+        <Tunnel _id="Out3" inputs="value:3017.value" uid="3023" uid_parent="3000"/>
+      </CaseFrame>
+
+      <CaseFrame selector=" &quot;Operation Mode&quot;\3A Value Change " uid="4000" uid_parent="140" label="Mode change: never switches a running operation">
+        <Tunnel _id="In1" outputs="value:4001.v" uid="4001" uid_parent="4000"/>
+        <Tunnel _id="In2" outputs="value:4002.v" uid="4002" uid_parent="4000"/>
+        <Tunnel _id="In3" outputs="value:" uid="4003" uid_parent="4000"/>
+        <Tunnel _id="In4" outputs="value:" uid="4004" uid_parent="4000"/>
+        <Tunnel _id="In5" outputs="value:" uid="4005" uid_parent="4000"/>
+        <Tunnel _id="In6" outputs="value:4006.run" uid="4006" uid_parent="4000"/>
+        <Tunnel _id="In7" outputs="value:" uid="4007" uid_parent="4000"/>
+        <Constant _name="msg ignored" type="string" uid="4013" uid_parent="4000" value="Mode change ignored while running - press Stop first." outputs="value:4013.value"/>
+        <Constant _name="msg changed" type="string" uid="4014" uid_parent="4000" value="Mode selection changed - it is used at the next Start." outputs="value:4014.value"/>
+        <Node _name="Select" inputs="t:4013.value,s:4006.run,f:4014.value" outputs="s? t\3Af:4015.msg" uid="4015" uid_parent="4000"/>
+        <Node _name="Bundle By Name" fields="Status Message" inputs="Status Message:4015.msg,input cluster:4002.v" outputs="output cluster:4016.data" uid="4016" uid_parent="4000"/>
+        <Constant _name="keep running" type="bool" uid="4017" uid_parent="4000" value="FALSE" outputs="value:4017.value"/>
+        <Tunnel _id="Out1" inputs="value:4001.v" uid="4021" uid_parent="4000"/>
+        <Tunnel _id="Out2" inputs="value:4016.data" uid="4022" uid_parent="4000"/>
+        <Tunnel _id="Out3" inputs="value:4017.value" uid="4023" uid_parent="4000"/>
+      </CaseFrame>
+
+      <CaseFrame selector=" &quot;Save&quot;\3A Value Change " uid="5000" uid_parent="140" label="Save: write the bounded log to CSV (file dialog, confirm before overwrite)">
+        <Tunnel _id="In1" outputs="value:5001.v" uid="5001" uid_parent="5000"/>
+        <Tunnel _id="In2" outputs="value:5002.v" uid="5002" uid_parent="5000"/>
+        <Tunnel _id="In3" outputs="value:" uid="5003" uid_parent="5000"/>
+        <Tunnel _id="In4" outputs="value:" uid="5004" uid_parent="5000"/>
+        <Tunnel _id="In5" outputs="value:5005.log" uid="5005" uid_parent="5000"/>
+        <Tunnel _id="In6" outputs="value:" uid="5006" uid_parent="5000"/>
+        <Tunnel _id="In7" outputs="value:" uid="5007" uid_parent="5000"/>
+        <Control _name="Save" type="bool" style="latched" uid="5010" uid_parent="5000" value="false" outputs="value:"/>
+        <Call target="Sim_Save_CSV.vi" inputs="Log Records:5005.log,File Path (empty = dialog):" outputs="Status Message:5011.msg,Saved?:" uid="5011" uid_parent="5000"/>
+        <Node _name="Bundle By Name" fields="Status Message" inputs="Status Message:5011.msg,input cluster:5002.v" outputs="output cluster:5012.data" uid="5012" uid_parent="5000"/>
+        <Constant _name="keep running" type="bool" uid="5013" uid_parent="5000" value="FALSE" outputs="value:5013.value"/>
+        <Tunnel _id="Out1" inputs="value:5001.v" uid="5021" uid_parent="5000"/>
+        <Tunnel _id="Out2" inputs="value:5012.data" uid="5022" uid_parent="5000"/>
+        <Tunnel _id="Out3" inputs="value:5013.value" uid="5023" uid_parent="5000"/>
+      </CaseFrame>
+
+      <CaseFrame selector=" &quot;Reset Fault&quot;\3A Value Change " uid="6000" uid_parent="140" label="Reset Fault: clear the latch and request IDLE; the safety check re-latches if the cause is still present">
+        <Tunnel _id="In1" outputs="value:6001.v" uid="6001" uid_parent="6000"/>
+        <Tunnel _id="In2" outputs="value:6002.v" uid="6002" uid_parent="6000"/>
+        <Tunnel _id="In3" outputs="value:" uid="6003" uid_parent="6000"/>
+        <Tunnel _id="In4" outputs="value:" uid="6004" uid_parent="6000"/>
+        <Tunnel _id="In5" outputs="value:" uid="6005" uid_parent="6000"/>
+        <Tunnel _id="In6" outputs="value:" uid="6006" uid_parent="6000"/>
+        <Tunnel _id="In7" outputs="value:6007.flt" uid="6007" uid_parent="6000"/>
+        <Control _name="Reset Fault" type="bool" style="latched" uid="6010" uid_parent="6000" value="false" outputs="value:"/>
+        <Constant _name="FALSE" type="bool" uid="6011" uid_parent="6000" value="FALSE" outputs="value:6011.value"/>
+        <Constant _name="code 0" type="int32" uid="6012" uid_parent="6000" value="0" outputs="value:6012.value"/>
+        <Constant _name="empty" type="string" uid="6013" uid_parent="6000" value="" outputs="value:6013.value"/>
+        <Constant _name="msg reset" type="string" uid="6014" uid_parent="6000" value="Fault reset requested - returning to IDLE." outputs="value:6014.value"/>
+        <Constant _name="msg no fault" type="string" uid="6015" uid_parent="6000" value="No latched fault to reset." outputs="value:6015.value"/>
+        <Node _name="Bundle By Name" fields="Fault,Fault Code,Fault Message,Fault Time,Status Message" inputs="Fault:6011.value,Fault Code:6012.value,Fault Message:6013.value,Fault Time:6013.value,Status Message:6014.value,input cluster:6002.v" outputs="output cluster:6016.reset" uid="6016" uid_parent="6000"/>
+        <Node _name="Bundle By Name" fields="Status Message" inputs="Status Message:6015.value,input cluster:6002.v" outputs="output cluster:6017.no" uid="6017" uid_parent="6000"/>
+        <Node _name="Select" inputs="t:6016.reset,s:6007.flt,f:6017.no" outputs="s? t\3Af:6018.data" uid="6018" uid_parent="6000"/>
+        <Constant _name="IDLE" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="6019" uid_parent="6000" value="1" outputs="value:6019.value"/>
+        <Node _name="Select" inputs="t:6019.value,s:6007.flt,f:6001.v" outputs="s? t\3Af:6020.state" uid="6020" uid_parent="6000"/>
+        <Tunnel _id="Out1" inputs="value:6020.state" uid="6021" uid_parent="6000"/>
+        <Tunnel _id="Out2" inputs="value:6018.data" uid="6022" uid_parent="6000"/>
+        <Tunnel _id="Out3" inputs="value:6011.value" uid="6023" uid_parent="6000"/>
+      </CaseFrame>
+
+      <CaseFrame selector=" &quot;Close&quot;\3A Value Change " uid="7000" uid_parent="140" label="Close: request STOPPED (outputs OFF on this last iteration) and end the loop">
+        <Tunnel _id="In1" outputs="value:" uid="7001" uid_parent="7000"/>
+        <Tunnel _id="In2" outputs="value:7002.v" uid="7002" uid_parent="7000"/>
+        <Tunnel _id="In3" outputs="value:" uid="7003" uid_parent="7000"/>
+        <Tunnel _id="In4" outputs="value:" uid="7004" uid_parent="7000"/>
+        <Tunnel _id="In5" outputs="value:" uid="7005" uid_parent="7000"/>
+        <Tunnel _id="In6" outputs="value:" uid="7006" uid_parent="7000"/>
+        <Tunnel _id="In7" outputs="value:" uid="7007" uid_parent="7000"/>
+        <Control _name="Close" type="bool" style="latched" uid="7010" uid_parent="7000" value="false" outputs="value:"/>
+        <Constant _name="STOPPED" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="7011" uid_parent="7000" value="4" outputs="value:7011.value"/>
+        <Constant _name="msg close" type="string" uid="7012" uid_parent="7000" value="Closing - outputs OFF." outputs="value:7012.value"/>
+        <Node _name="Bundle By Name" fields="Status Message" inputs="Status Message:7012.value,input cluster:7002.v" outputs="output cluster:7013.data" uid="7013" uid_parent="7000"/>
+        <Constant _name="stop loop" type="bool" uid="7014" uid_parent="7000" value="TRUE" outputs="value:7014.value"/>
+        <Tunnel _id="Out1" inputs="value:7011.value" uid="7021" uid_parent="7000"/>
+        <Tunnel _id="Out2" inputs="value:7013.data" uid="7022" uid_parent="7000"/>
+        <Tunnel _id="Out3" inputs="value:7014.value" uid="7023" uid_parent="7000"/>
+      </CaseFrame>
+
+      <CaseFrame selector=" Panel Close? " uid="8000" uid_parent="140" label="Window close box: keep the panel, stop safely like Close">
+        <Tunnel _id="In1" outputs="value:" uid="8001" uid_parent="8000"/>
+        <Tunnel _id="In2" outputs="value:8002.v" uid="8002" uid_parent="8000"/>
+        <Tunnel _id="In3" outputs="value:" uid="8003" uid_parent="8000"/>
+        <Tunnel _id="In4" outputs="value:" uid="8004" uid_parent="8000"/>
+        <Tunnel _id="In5" outputs="value:" uid="8005" uid_parent="8000"/>
+        <Tunnel _id="In6" outputs="value:" uid="8006" uid_parent="8000"/>
+        <Tunnel _id="In7" outputs="value:" uid="8007" uid_parent="8000"/>
+        <Constant _name="TRUE" type="bool" uid="8010" uid_parent="8000" value="TRUE" outputs="value:8010.value"/>
+        <Node _name="Event Filter Node" fields="Discard?" inputs="Discard?:8010.value" uid="8011" uid_parent="8000"/>
+        <Constant _name="STOPPED" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="8012" uid_parent="8000" value="4" outputs="value:8012.value"/>
+        <Constant _name="msg window" type="string" uid="8013" uid_parent="8000" value="Window closed - outputs OFF." outputs="value:8013.value"/>
+        <Node _name="Bundle By Name" fields="Status Message" inputs="Status Message:8013.value,input cluster:8002.v" outputs="output cluster:8014.data" uid="8014" uid_parent="8000"/>
+        <Tunnel _id="Out1" inputs="value:8012.value" uid="8021" uid_parent="8000"/>
+        <Tunnel _id="Out2" inputs="value:8014.data" uid="8022" uid_parent="8000"/>
+        <Tunnel _id="Out3" inputs="value:8010.value" uid="8023" uid_parent="8000"/>
+      </CaseFrame>
+
+      <Tunnel _id="Out1" outputs="value:141.value" uid="141" uid_parent="140"/>
+      <Tunnel _id="Out2" outputs="value:142.value" uid="142" uid_parent="140"/>
+      <Tunnel _id="Out3" outputs="value:143.value" uid="143" uid_parent="140"/>
+    </Structure>
+
+    <Structure _name="Case Structure" selectin="141.value" uid="150" uid_parent="100">
+      <Tunnel _id="In1" inputs="value:142.value" uid="1501" uid_parent="150"/>
+      <Tunnel _id="In2" inputs="value:110.value" uid="1502" uid_parent="150"/>
+      <Tunnel _id="In3" inputs="value:141.value" uid="1503" uid_parent="150"/>
+
+      <CaseFrame selector="&quot;INIT&quot;" selectout="" uid="1510" uid_parent="150" label="INIT: demo start values from Simulation Settings, then IDLE">
+        <Tunnel _id="In1" outputs="value:" uid="1511" uid_parent="1510"/>
+        <Tunnel _id="In2" outputs="value:1512.v" uid="1512" uid_parent="1510"/>
+        <Tunnel _id="In3" outputs="value:" uid="1513" uid_parent="1510"/>
+        <Node _name="Unbundle By Name" fields="Initial SOC (%),Rest Voltage (V),Ambient Temperature (degC)" inputs="input cluster:1512.v" outputs="Initial SOC (%):1514.soc,Rest Voltage (V):1514.v,Ambient Temperature (degC):1514.t" uid="1514" uid_parent="1510"/>
+        <Constant _name="Sim Data defaults" type="cluster{double.SOC (%),double.Voltage (V),double.Current (A),double.Temperature (degC),double.Run Time (s),double.Elapsed (s),uint32.Cycle Count,uint16{Charge,Discharge}.Active Mode,double.Setpoint Voltage (V),double.Setpoint Current (A),double.Setpoint C-Rate (1/h),double.Setpoint Duration (min),bool.Sim PS Enable,bool.Sim Load Enable,bool.Charge Half Done,bool.Discharge Half Done,bool.Fault,int32.Fault Code,string.Fault Message,string.Fault Time,string.Status Message}" uid="1515" uid_parent="1510" value="[0,0,0,0,0,0,0,0,0,0,0,0,false,false,false,false,false,0,,,]" outputs="value:1515.value"/>
+        <Constant _name="msg init" type="string" uid="1516" uid_parent="1510" value="Initialized. SIMULATION MODE - no hardware connected." outputs="value:1516.value"/>
+        <Node _name="Bundle By Name" fields="SOC (%),Voltage (V),Temperature (degC),Status Message" inputs="SOC (%):1514.soc,Voltage (V):1514.v,Temperature (degC):1514.t,Status Message:1516.value,input cluster:1515.value" outputs="output cluster:1517.sd" uid="1517" uid_parent="1510"/>
+        <Constant _name="IDLE" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="1518" uid_parent="1510" value="1" outputs="value:1518.value"/>
+        <Tunnel _id="Out1" inputs="value:1518.value" uid="1519" uid_parent="1510"/>
+        <Tunnel _id="Out2" inputs="value:1517.sd" uid="1520" uid_parent="1510"/>
+      </CaseFrame>
+
+      <CaseFrame selector="&quot;IDLE&quot;\2C &quot;STOPPED&quot;\2C &quot;FAULT&quot;" selectout="" uid="1600" uid_parent="150" label="IDLE / STOPPED / FAULT: hold; the model forces both outputs OFF">
+        <Tunnel _id="In1" outputs="value:1601.v" uid="1601" uid_parent="1600"/>
+        <Tunnel _id="In2" outputs="value:" uid="1602" uid_parent="1600"/>
+        <Tunnel _id="In3" outputs="value:1603.v" uid="1603" uid_parent="1600"/>
+        <Tunnel _id="Out1" inputs="value:1603.v" uid="1604" uid_parent="1600"/>
+        <Tunnel _id="Out2" inputs="value:1601.v" uid="1605" uid_parent="1600"/>
+      </CaseFrame>
+
+      <CaseFrame selector="&quot;CHARGING&quot;\2C &quot;DISCHARGING&quot;" selectout="" uid="1700" uid_parent="150" label="CHARGING / DISCHARGING: completion check, done -> STOPPED">
+        <Tunnel _id="In1" outputs="value:1701.v" uid="1701" uid_parent="1700"/>
+        <Tunnel _id="In2" outputs="value:1702.v" uid="1702" uid_parent="1700"/>
+        <Tunnel _id="In3" outputs="value:1703.v" uid="1703" uid_parent="1700"/>
+        <Call target="Sim_Check_Completion.vi" inputs="Sim Data in:1701.v,Settings:1702.v,State:1703.v" outputs="Sim Data out:1704.sd,Done?:1704.done" uid="1704" uid_parent="1700"/>
+        <Constant _name="STOPPED" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="1705" uid_parent="1700" value="4" outputs="value:1705.value"/>
+        <Node _name="Select" inputs="t:1705.value,s:1704.done,f:1703.v" outputs="s? t\3Af:1706.ns" uid="1706" uid_parent="1700"/>
+        <Tunnel _id="Out1" inputs="value:1706.ns" uid="1707" uid_parent="1700"/>
+        <Tunnel _id="Out2" inputs="value:1704.sd" uid="1708" uid_parent="1700"/>
+      </CaseFrame>
+
+      <CaseFrame selector="Default" selectout="" uid="1800" uid_parent="150" label="Default: unexpected state -> safe FAULT">
+        <Tunnel _id="In1" outputs="value:1801.v" uid="1801" uid_parent="1800"/>
+        <Tunnel _id="In2" outputs="value:" uid="1802" uid_parent="1800"/>
+        <Tunnel _id="In3" outputs="value:" uid="1803" uid_parent="1800"/>
+        <Constant _name="FAULT" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="1804" uid_parent="1800" value="5" outputs="value:1804.value"/>
+        <Constant _name="TRUE" type="bool" uid="1805" uid_parent="1800" value="TRUE" outputs="value:1805.value"/>
+        <Constant _name="FALSE" type="bool" uid="1806" uid_parent="1800" value="FALSE" outputs="value:1806.value"/>
+        <Constant _name="code 99" type="int32" uid="1807" uid_parent="1800" value="99" outputs="value:1807.value"/>
+        <Constant _name="msg unexpected" type="string" uid="1808" uid_parent="1800" value="Unexpected state (software error) - safe fallback to FAULT." outputs="value:1808.value"/>
+        <Node _name="Bundle By Name" fields="Fault,Fault Code,Fault Message,Status Message,Sim PS Enable,Sim Load Enable" inputs="Fault:1805.value,Fault Code:1807.value,Fault Message:1808.value,Status Message:1808.value,Sim PS Enable:1806.value,Sim Load Enable:1806.value,input cluster:1801.v" outputs="output cluster:1809.sd" uid="1809" uid_parent="1800"/>
+        <Tunnel _id="Out1" inputs="value:1804.value" uid="1810" uid_parent="1800"/>
+        <Tunnel _id="Out2" inputs="value:1809.sd" uid="1811" uid_parent="1800"/>
+      </CaseFrame>
+
+      <Tunnel _id="Out1" outputs="value:151.value" uid="151" uid_parent="150"/>
+      <Tunnel _id="Out2" outputs="value:152.value" uid="152" uid_parent="150"/>
+    </Structure>
+
+    <Call target="Sim_Update_Model.vi" inputs="Sim Data in:152.value,Settings:110.value,State:151.value,dt (s):126.dt" outputs="Sim Data out:160.sd" uid="160" uid_parent="100"/>
+    <Call target="Sim_Check_Safety.vi" inputs="Sim Data in:160.sd,Settings:110.value" outputs="Sim Data out:176.sd,Fault Active?:170.fa" uid="170" uid_parent="100"/>
+    <Constant _name="FAULT" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="180" uid_parent="100" value="5" outputs="value:180.value"/>
+    <Node _name="Select" inputs="t:180.value,s:170.fa,f:151.value" outputs="s? t\3Af:181.fs" uid="181" uid_parent="100"/>
+    <Indicator _name="Current State" type="uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}" uid="182" uid_parent="100" value="0" inputs="value:181.fs"/>
+
+    <Constant _name="log time format" type="string" uid="183" uid_parent="100" value="%Y-%m-%d %H:%M:%S%3u" outputs="value:183.value"/>
+    <Node _name="Format Date/Time String" inputs="UTC format:,seconds (now):,time format string (%c):183.value" outputs="date/time string:184.ts" uid="184" uid_parent="100"/>
+    <Constant _name="log record" type="cluster{string.Timestamp,uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}.State,cluster{double.SOC (%),double.Voltage (V),double.Current (A),double.Temperature (degC),double.Run Time (s),double.Elapsed (s),uint32.Cycle Count,uint16{Charge,Discharge}.Active Mode,double.Setpoint Voltage (V),double.Setpoint Current (A),double.Setpoint C-Rate (1/h),double.Setpoint Duration (min),bool.Sim PS Enable,bool.Sim Load Enable,bool.Charge Half Done,bool.Discharge Half Done,bool.Fault,int32.Fault Code,string.Fault Message,string.Fault Time,string.Status Message}.Data}" uid="185" uid_parent="100" value="[,0,[0,0,0,0,0,0,0,0,0,0,0,0,false,false,false,false,false,0,,,]]" outputs="value:185.value"/>
+    <Node _name="Bundle By Name" fields="Timestamp,State,Data" inputs="Timestamp:184.ts,State:181.fs,Data:176.sd,input cluster:185.value" outputs="output cluster:186.rec" uid="186" uid_parent="100"/>
+    <Node _name="Build Array" concat="true" inputs="array:108.log,element:186.rec" outputs="appended array:187.grown" uid="187" uid_parent="100"/>
+    <Node _name="Array Size" inputs="array:187.grown" outputs="size(s):188.n" uid="188" uid_parent="100"/>
+    <Node _name="Subtract" inputs="x:188.n,y:112.hist" outputs="x-y:189.start" uid="189" uid_parent="100"/>
+    <Node _name="Array Subset" inputs="array:187.grown,index:189.start,length:112.hist" outputs="subarray:194.sub" uid="194" uid_parent="100"/>
+
+    <Structure _name="For Loop" count="" maxin="" maxout="" uid="195" uid_parent="100">
+      <Tunnel _id="In1" inputs="value:194.sub" mode="index" outputs="value:196.rec" uid="196" uid_parent="195"/>
+      <Node _name="Unbundle By Name" fields="Data" inputs="input cluster:196.rec" outputs="Data:197.d" uid="197" uid_parent="195"/>
+      <Node _name="Unbundle By Name" fields="Run Time (s),Voltage (V),Current (A),Temperature (degC)" inputs="input cluster:197.d" outputs="Run Time (s):198.rt,Voltage (V):198.v,Current (A):198.i,Temperature (degC):198.t" uid="198" uid_parent="195"/>
+      <Tunnel _id="Out1" inputs="value:198.rt" mode="index" outputs="value:1951.rt" uid="1951" uid_parent="195"/>
+      <Tunnel _id="Out2" inputs="value:198.v" mode="index" outputs="value:1952.v" uid="1952" uid_parent="195"/>
+      <Tunnel _id="Out3" inputs="value:198.i" mode="index" outputs="value:1953.i" uid="1953" uid_parent="195"/>
+      <Tunnel _id="Out4" inputs="value:198.t" mode="index" outputs="value:1954.t" uid="1954" uid_parent="195"/>
+    </Structure>
+
+    <Constant _name="V graph data" type="cluster{array{double}.Time (s),array{double}.Voltage (V)}" uid="200" uid_parent="100" value="[[],[]]" outputs="value:200.value"/>
+    <Node _name="Bundle By Name" fields="Time (s),Voltage (V)" inputs="Time (s):1951.rt,Voltage (V):1952.v,input cluster:200.value" outputs="output cluster:201.g" uid="201" uid_parent="100"/>
+    <Indicator _name="DC Voltage Graph" style="graph21716" type="cluster{array{double}.Time (s),array{double}.Voltage (V)}" uid="202" uid_parent="100" value="[[],[]]" inputs="value:201.g"/>
+    <Constant _name="I graph data" type="cluster{array{double}.Time (s),array{double}.Current (A)}" uid="203" uid_parent="100" value="[[],[]]" outputs="value:203.value"/>
+    <Node _name="Bundle By Name" fields="Time (s),Current (A)" inputs="Time (s):1951.rt,Current (A):1953.i,input cluster:203.value" outputs="output cluster:204.g" uid="204" uid_parent="100"/>
+    <Indicator _name="DC Current Graph" style="graph21716" type="cluster{array{double}.Time (s),array{double}.Current (A)}" uid="205" uid_parent="100" value="[[],[]]" inputs="value:204.g"/>
+    <Constant _name="T graph data" type="cluster{array{double}.Time (s),array{double}.Temperature (degC)}" uid="206" uid_parent="100" value="[[],[]]" outputs="value:206.value"/>
+    <Node _name="Bundle By Name" fields="Time (s),Temperature (degC)" inputs="Time (s):1951.rt,Temperature (degC):1954.t,input cluster:206.value" outputs="output cluster:207.g" uid="207" uid_parent="100"/>
+    <Indicator _name="Temperature Graph" style="graph21716" type="cluster{array{double}.Time (s),array{double}.Temperature (degC)}" uid="208" uid_parent="100" value="[[],[]]" inputs="value:207.g"/>
+
+    <Node _name="Unbundle By Name" fields="SOC (%),Voltage (V),Current (A),Temperature (degC),Elapsed (s),Cycle Count,Sim PS Enable,Sim Load Enable,Fault,Fault Message,Status Message" inputs="input cluster:176.sd" outputs="SOC (%):210.soc,Voltage (V):210.v,Current (A):210.i,Temperature (degC):210.t,Elapsed (s):210.el,Cycle Count:210.cyc,Sim PS Enable:210.ps,Sim Load Enable:210.ld,Fault:210.f,Fault Message:210.fm,Status Message:210.sm" uid="210" uid_parent="100"/>
+    <Indicator _name="SOC (%)" type="double" uid="211" uid_parent="100" value="0" inputs="value:210.soc"/>
+    <Indicator _name="DC Voltage (V)" type="double" uid="212" uid_parent="100" value="0" inputs="value:210.v"/>
+    <Indicator _name="DC Current (A)" type="double" uid="213" uid_parent="100" value="0" inputs="value:210.i"/>
+    <Indicator _name="Temperature (degC)" type="double" uid="214" uid_parent="100" value="0" inputs="value:210.t"/>
+    <Indicator _name="Elapsed Time (s)" type="double" uid="215" uid_parent="100" value="0" inputs="value:210.el"/>
+    <Indicator _name="Cycle Count" type="uint32" uid="216" uid_parent="100" value="0" inputs="value:210.cyc"/>
+    <Indicator _name="Sim Power Supply Output" type="bool" uid="217" uid_parent="100" value="false" inputs="value:210.ps"/>
+    <Indicator _name="Sim DC Load Output" type="bool" uid="218" uid_parent="100" value="false" inputs="value:210.ld"/>
+    <Indicator _name="Fault" type="bool" uid="219" uid_parent="100" value="false" inputs="value:210.f"/>
+    <Indicator _name="Fault Message" type="string" uid="220" uid_parent="100" value="" inputs="value:210.fm"/>
+    <Indicator _name="Status Message" type="string" uid="221" uid_parent="100" value="" inputs="value:210.sm"/>
+
+    <Condition inputs="value:143.value" uid="199" uid_parent="100" value="stop"/>
+  </Structure>
+</VI>

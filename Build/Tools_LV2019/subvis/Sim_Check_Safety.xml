@@ -1,0 +1,46 @@
+<VI _name="Sim_Check_Safety.vi" description="Simulated safety check - NOT a substitute for a BMS or hardware interlock. Priority: 1 E-Stop injection, 2 overvoltage, 3 overcurrent, 4 overtemperature (each: injection OR value above the DEMO limit), 5 output interlock (supply and load both on). On a fault: Fault latched with code, reason and first fault time, both simulated outputs OFF, both half-cycle flags cleared. While a fault is ALREADY latched the Status Message is left as it is, so command messages (Start blocked, reset refused) stay visible. Without a fault the data passes through unchanged (a latched fault is cleared only by Reset Fault in the main VI).">
+  <Control _name="Sim Data in" conIdx="11" connection="required" type="cluster{double.SOC (%),double.Voltage (V),double.Current (A),double.Temperature (degC),double.Run Time (s),double.Elapsed (s),uint32.Cycle Count,uint16{Charge,Discharge}.Active Mode,double.Setpoint Voltage (V),double.Setpoint Current (A),double.Setpoint C-Rate (1/h),double.Setpoint Duration (min),bool.Sim PS Enable,bool.Sim Load Enable,bool.Charge Half Done,bool.Discharge Half Done,bool.Fault,int32.Fault Code,string.Fault Message,string.Fault Time,string.Status Message}" uid="100" uid_parent="root" value="[0,0,0,0,0,0,0,0,0,0,0,0,false,false,false,false,false,0,,,]" outputs="value:100.value"/>
+  <Control _name="Settings" conIdx="10" connection="required" type="cluster{int32.UI Update Interval (ms),double.Max dt (s),double.Initial SOC (%),double.Rest Voltage (V),double.Ambient Temperature (degC),double.Voltage Time Constant (s),double.Current Time Constant (s),double.Thermal Time Constant (s),double.Heating Coefficient (degC/s per A^2),double.SOC Speed Factor,double.Charge Complete SOC (%),double.Discharge Complete SOC (%),double.Max Voltage Limit (V),double.Max Current Limit (A),double.Max Temperature Limit (degC),double.Max C-Rate (1/h),double.Max Duration (min),int32.History Length (samples),bool.Inject E-Stop,bool.Inject Overvoltage,bool.Inject Overcurrent,bool.Inject Overtemperature}" uid="101" uid_parent="root" value="[200,1,50,12,25,5,1,120,0.002,1,100,0,15,10,45,5,600,3000,false,false,false,false]" outputs="value:101.value"/>
+  <Indicator _name="Sim Data out" conIdx="3" connection="recommended" type="cluster{double.SOC (%),double.Voltage (V),double.Current (A),double.Temperature (degC),double.Run Time (s),double.Elapsed (s),uint32.Cycle Count,uint16{Charge,Discharge}.Active Mode,double.Setpoint Voltage (V),double.Setpoint Current (A),double.Setpoint C-Rate (1/h),double.Setpoint Duration (min),bool.Sim PS Enable,bool.Sim Load Enable,bool.Charge Half Done,bool.Discharge Half Done,bool.Fault,int32.Fault Code,string.Fault Message,string.Fault Time,string.Status Message}" uid="300" uid_parent="root" value="[0,0,0,0,0,0,0,0,0,0,0,0,false,false,false,false,false,0,,,]" inputs="value:225.out"/>
+  <Indicator _name="Fault Active?" conIdx="2" connection="recommended" type="bool" uid="301" uid_parent="root" value="false" inputs="value:213.fault"/>
+
+  <Node _name="Unbundle By Name" fields="Voltage (V),Current (A),Temperature (degC),Sim PS Enable,Sim Load Enable,Fault,Fault Time,Status Message" inputs="input cluster:100.value" outputs="Voltage (V):200.v,Current (A):200.i,Temperature (degC):200.t,Sim PS Enable:200.ps,Sim Load Enable:200.ld,Fault:200.flt,Fault Time:200.ftime,Status Message:200.status" uid="200" uid_parent="root"/>
+  <Node _name="Unbundle By Name" fields="Inject E-Stop,Inject Overvoltage,Inject Overcurrent,Inject Overtemperature,Max Voltage Limit (V),Max Current Limit (A),Max Temperature Limit (degC)" inputs="input cluster:101.value" outputs="Inject E-Stop:201.ie,Inject Overvoltage:201.iov,Inject Overcurrent:201.ioc,Inject Overtemperature:201.iot,Max Voltage Limit (V):201.vmax,Max Current Limit (A):201.imax,Max Temperature Limit (degC):201.tmax" uid="201" uid_parent="root"/>
+  <Node _name="Greater?" inputs="x:200.v,y:201.vmax" outputs="x &gt; y?:202.r" uid="202" uid_parent="root"/>
+  <Node _name="Or" inputs="x:201.iov,y:202.r" outputs="x .or. y?:203.c2" uid="203" uid_parent="root"/>
+  <Node _name="Absolute Value" inputs="x:200.i" outputs="abs(x):204.ai" uid="204" uid_parent="root"/>
+  <Node _name="Greater?" inputs="x:204.ai,y:201.imax" outputs="x &gt; y?:205.r" uid="205" uid_parent="root"/>
+  <Node _name="Or" inputs="x:201.ioc,y:205.r" outputs="x .or. y?:206.c3" uid="206" uid_parent="root"/>
+  <Node _name="Greater?" inputs="x:200.t,y:201.tmax" outputs="x &gt; y?:207.r" uid="207" uid_parent="root"/>
+  <Node _name="Or" inputs="x:201.iot,y:207.r" outputs="x .or. y?:208.c4" uid="208" uid_parent="root"/>
+  <Node _name="And" inputs="x:200.ps,y:200.ld" outputs="x .and. y?:209.c5" uid="209" uid_parent="root"/>
+  <Node _name="Build Array" inputs="element:201.ie,element:203.c2,element:206.c3,element:208.c4,element:209.c5" outputs="appended array:210.conds" uid="210" uid_parent="root"/>
+  <Constant _name="find first TRUE" type="bool" uid="211" uid_parent="root" value="TRUE" outputs="value:211.value"/>
+  <Node _name="Search 1D Array" inputs="1D array:210.conds,element:211.value" outputs="index of element:212.idx" uid="212" uid_parent="root"/>
+  <Node _name="Greater Or Equal To 0?" inputs="x:212.idx" outputs="x &gt;= 0?:213.fault" uid="213" uid_parent="root"/>
+  <Constant _name="fault reasons" type="array{string}" uid="214" uid_parent="root" value="[E-STOP (simulated fault injection),OVERVOLTAGE (simulated - above demo Max Voltage Limit),OVERCURRENT (simulated - above demo Max Current Limit),OVERTEMPERATURE (simulated - above demo Max Temperature Limit),OUTPUT INTERLOCK (supply and load both enabled)]" outputs="value:214.value"/>
+  <Node _name="Index Array" inputs="array:214.value,index:212.idx" outputs="element:215.reason" uid="215" uid_parent="root"/>
+  <Constant _name="use system decimal point" type="bool" uid="216" uid_parent="root" value="FALSE" outputs="value:216.value"/>
+  <Constant _name="2 digits" type="int32" uid="217" uid_parent="root" value="2" outputs="value:217.value"/>
+  <Constant _name="1 digit" type="int32" uid="218" uid_parent="root" value="1" outputs="value:218.value"/>
+  <Node _name="Number To Fractional String" inputs="use system decimal point (T):216.value,precision (6):217.value,width (-):,number:200.v" outputs="F-format string:219.vs" uid="219" uid_parent="root"/>
+  <Node _name="Number To Fractional String" inputs="use system decimal point (T):216.value,precision (6):217.value,width (-):,number:200.i" outputs="F-format string:220.is" uid="220" uid_parent="root"/>
+  <Node _name="Number To Fractional String" inputs="use system decimal point (T):216.value,precision (6):218.value,width (-):,number:200.t" outputs="F-format string:221.ts" uid="221" uid_parent="root"/>
+  <Constant _name="s1" type="string" uid="222" uid_parent="root" value=" (V=" outputs="value:222.value"/>
+  <Constant _name="s2" type="string" uid="223" uid_parent="root" value=" V\2C I=" outputs="value:223.value"/>
+  <Constant _name="s3" type="string" uid="224" uid_parent="root" value=" A\2C T=" outputs="value:224.value"/>
+  <Constant _name="s4" type="string" uid="226" uid_parent="root" value=" degC)" outputs="value:226.value"/>
+  <Node _name="Concatenate Strings" inputs="string:215.reason,string:222.value,string:219.vs,string:223.value,string:220.is,string:224.value,string:221.ts,string:226.value" outputs="concatenated string:227.msg" uid="227" uid_parent="root"/>
+  <Constant _name="time format" type="string" uid="228" uid_parent="root" value="%Y-%m-%d %H:%M:%S" outputs="value:228.value"/>
+  <Node _name="Format Date/Time String" inputs="UTC format:,seconds (now):,time format string (%c):228.value" outputs="date/time string:229.now" uid="229" uid_parent="root"/>
+  <Node _name="Select" inputs="t:200.ftime,s:200.flt,f:229.now" outputs="s? t\3Af:230.ftime" uid="230" uid_parent="root"/>
+  <Constant _name="p1" type="string" uid="231" uid_parent="root" value="FAULT latched: " outputs="value:231.value"/>
+  <Constant _name="p2" type="string" uid="232" uid_parent="root" value=". Remove the cause\2C then press Reset Fault." outputs="value:232.value"/>
+  <Node _name="Concatenate Strings" inputs="string:231.value,string:227.msg,string:232.value" outputs="concatenated string:233.status" uid="233" uid_parent="root"/>
+  <Node _name="Select" inputs="t:200.status,s:200.flt,f:233.status" outputs="s? t\3Af:238.status" uid="238" uid_parent="root"/>
+  <Node _name="Increment" inputs="x:212.idx" outputs="x+1:234.code" uid="234" uid_parent="root"/>
+  <Constant _name="TRUE" type="bool" uid="235" uid_parent="root" value="TRUE" outputs="value:235.value"/>
+  <Constant _name="FALSE" type="bool" uid="236" uid_parent="root" value="FALSE" outputs="value:236.value"/>
+  <Node _name="Bundle By Name" fields="Fault,Fault Code,Fault Message,Fault Time,Sim PS Enable,Sim Load Enable,Charge Half Done,Discharge Half Done,Status Message" inputs="Fault:235.value,Fault Code:234.code,Fault Message:227.msg,Fault Time:230.ftime,Sim PS Enable:236.value,Sim Load Enable:236.value,Charge Half Done:236.value,Discharge Half Done:236.value,Status Message:238.status,input cluster:100.value" outputs="output cluster:237.faulted" uid="237" uid_parent="root"/>
+  <Node _name="Select" inputs="t:237.faulted,s:213.fault,f:100.value" outputs="s? t\3Af:225.out" uid="225" uid_parent="root"/>
+</VI>

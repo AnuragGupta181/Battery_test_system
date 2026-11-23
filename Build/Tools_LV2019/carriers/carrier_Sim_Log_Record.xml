@@ -1,0 +1,3 @@
+<VI _name="carrier_Sim_Log_Record.vi" description="Carrier: Sim_Log_Record typedef. State and Data are bound to Sim_State_Enum.ctl and Sim_Data.ctl afterwards.">
+  <Control _name="Log Record" type="cluster{string.Timestamp,uint16{INIT,IDLE,CHARGING,DISCHARGING,STOPPED,FAULT}.State,cluster{double.SOC (%)}.Data}" uid="10" uid_parent="root" value="[,0,[0]]" outputs="value:10.value"/>
+</VI>

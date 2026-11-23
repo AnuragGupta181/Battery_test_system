@@ -1,0 +1,24 @@
+<VI _name="Sim_Validate_Setpoints.vi" description="Validates the setpoints of the selected operation before Start. Each value must be finite, greater than 0 and not above its limit in Simulation Settings (DEMO ONLY). NaN and Inf fail automatically because every comparison with them is FALSE. Message names the FIRST failing value in the order Voltage, Current, C-Rate, Duration.">
+  <Control _name="Settings" conIdx="7" connection="required" type="cluster{int32.UI Update Interval (ms),double.Max dt (s),double.Initial SOC (%),double.Rest Voltage (V),double.Ambient Temperature (degC),double.Voltage Time Constant (s),double.Current Time Constant (s),double.Thermal Time Constant (s),double.Heating Coefficient (degC/s per A^2),double.SOC Speed Factor,double.Charge Complete SOC (%),double.Discharge Complete SOC (%),double.Max Voltage Limit (V),double.Max Current Limit (A),double.Max Temperature Limit (degC),double.Max C-Rate (1/h),double.Max Duration (min),int32.History Length (samples),bool.Inject E-Stop,bool.Inject Overvoltage,bool.Inject Overcurrent,bool.Inject Overtemperature}" uid="100" uid_parent="root" value="[200,1,50,12,25,5,1,120,0.002,1,100,0,15,10,45,5,600,3000,false,false,false,false]" outputs="value:100.value"/>
+  <Control _name="Voltage (V)" conIdx="11" connection="required" type="double" uid="101" uid_parent="root" value="0" outputs="value:101.value"/>
+  <Control _name="Current (A)" conIdx="10" connection="required" type="double" uid="102" uid_parent="root" value="0" outputs="value:102.value"/>
+  <Control _name="C-Rate (1/h)" conIdx="9" connection="required" type="double" uid="103" uid_parent="root" value="0" outputs="value:103.value"/>
+  <Control _name="Duration (min)" conIdx="8" connection="required" type="double" uid="104" uid_parent="root" value="0" outputs="value:104.value"/>
+
+  <Node _name="Build Array" inputs="element:101.value,element:102.value,element:103.value,element:104.value" outputs="appended array:200.vals" uid="200" uid_parent="root"/>
+  <Node _name="Unbundle By Name" fields="Max Voltage Limit (V),Max Current Limit (A),Max C-Rate (1/h),Max Duration (min)" inputs="input cluster:100.value" outputs="Max Voltage Limit (V):201.vmax,Max Current Limit (A):201.imax,Max C-Rate (1/h):201.cmax,Max Duration (min):201.dmax" uid="201" uid_parent="root"/>
+  <Node _name="Build Array" inputs="element:201.vmax,element:201.imax,element:201.cmax,element:201.dmax" outputs="appended array:202.lims" uid="202" uid_parent="root"/>
+  <Node _name="Greater Than 0?" inputs="x:200.vals" outputs="x &gt; 0?:203.gt" uid="203" uid_parent="root"/>
+  <Node _name="Less Or Equal?" inputs="x:200.vals,y:202.lims" outputs="x &lt;= y?:204.le" uid="204" uid_parent="root"/>
+  <Node _name="And" inputs="x:203.gt,y:204.le" outputs="x .and. y?:205.ok" uid="205" uid_parent="root"/>
+  <Constant _name="find first FALSE" type="bool" uid="206" uid_parent="root" value="FALSE" outputs="value:206.value"/>
+  <Node _name="Search 1D Array" inputs="1D array:205.ok,element:206.value" outputs="index of element:207.idx" uid="207" uid_parent="root"/>
+  <Node _name="Less Than 0?" inputs="x:207.idx" outputs="x &lt; 0?:208.valid" uid="208" uid_parent="root"/>
+  <Constant _name="rejection messages" type="array{string}" uid="209" uid_parent="root" value="[Rejected: Voltage setpoint must be &gt; 0 and &lt;= Max Voltage Limit (Simulation Settings).,Rejected: Current setpoint must be &gt; 0 and &lt;= Max Current Limit (Simulation Settings).,Rejected: C-Rate must be &gt; 0 and &lt;= Max C-Rate (Simulation Settings).,Rejected: Duration must be &gt; 0 and &lt;= Max Duration (Simulation Settings).]" outputs="value:209.value"/>
+  <Node _name="Index Array" inputs="array:209.value,index:207.idx" outputs="element:210.msg" uid="210" uid_parent="root"/>
+  <Constant _name="ok message" type="string" uid="211" uid_parent="root" value="Setpoints OK." outputs="value:211.value"/>
+  <Node _name="Select" inputs="t:211.value,s:208.valid,f:210.msg" outputs="s? t\3Af:212.out" uid="212" uid_parent="root"/>
+
+  <Indicator _name="Valid?" conIdx="3" connection="recommended" type="bool" uid="300" uid_parent="root" value="false" inputs="value:208.valid"/>
+  <Indicator _name="Message" conIdx="2" connection="recommended" type="string" uid="301" uid_parent="root" value="" inputs="value:212.out"/>
+</VI>
