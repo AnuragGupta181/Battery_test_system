@@ -1,0 +1,3 @@
+<VI _name="carrier_enum.vi" description="Carrier for typedef probe">
+  <Control _name="Probe Enum" type="uint16{ALPHA,BETA,GAMMA}" uid="10" uid_parent="root" value="0" outputs="value:10.value"/>
+</VI>

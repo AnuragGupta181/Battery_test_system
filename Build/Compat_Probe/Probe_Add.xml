@@ -1,0 +1,6 @@
+<VI _name="Probe_Add.vi" description="LabVIEW 2019 MCP compatibility probe: sum = a + b. Disposable.">
+  <Control _name="a" conIdx="0" connection="required" outputs="value:43.value" type="double" uid="43" uid_parent="root" value="0"/>
+  <Control _name="b" conIdx="1" connection="required" outputs="value:57.value" type="double" uid="57" uid_parent="root" value="0"/>
+  <Node _name="Add" inputs="x:43.value,y:57.value" outputs="x+y:71.x+y" uid="71" uid_parent="root"/>
+  <Indicator _name="sum" conIdx="4" connection="recommended" inputs="value:71.x+y" type="double" uid="88" uid_parent="root" value="0"/>
+</VI>
