@@ -13,7 +13,7 @@ The full requirements are in `docs/requirements/PROJECT_PROMPT.md`.
   Stress_Calc_SubVI.vi
   Test_State_Enum.ctl                 8 items (INIT, IDLE, CHARGE _CC, CHARGE _CV, REST, DISCHARGE_DC, Fault, Stop) - used by RT VI
   Test_State_Enum2.ctl                Charge / Discharge mode typedef
-  Control 2.ctl, Control 3.ctl, main battery tester.vi   on disk, not in the project
+  (Control 2.ctl, Control 3.ctl, main battery tester.vi were unused and deleted 2026-11-23; still in git history)
 Build/
   Original_Backup_2026-11-23/         byte copy of the originals (SHA256 values in the manifest)
   Compat_Probe/                       failed MCP probe for LabVIEW 2019 - kept as evidence

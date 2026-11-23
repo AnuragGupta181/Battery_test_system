@@ -88,6 +88,15 @@
     4. The diagram is wider than one screen; Clean Up Diagram fixes that.
 - Part 1 (typedefs) is complete: Sim_State_Enum (built by the user), Sim_Data, Sim_Settings, Sim_Log_Record, and Test_State_Enum2 (reused).
 
+### Cleanup (2026-11-23, user's choice "group A only")
+Deleted as never used: in no project, and no VI references them (checked with a binary search of every .vi/.ctl):
+- `Control 2.ctl`, `Control 3.ctl` and `main battery tester.vi` (the older version of `main battery tester vi22.vi`), in the root, `Build/Simulation` and the backup folder.
+- The failed layout experiment `Tools_LV2019/lv_layout_panel.xml`, `layout_panel.vbs` and `panel_tree.vbs`.
+
+All of these remain retrievable from git history (commit `7620acf` and earlier). The hashes in the tables above are kept for the record.
+
+During the cleanup, `Build/Original_Backup_2026-11-23/` and the root `main battery tester vi22.vi` were found deleted from disk outside the cleanup command. They were restored unchanged from git (vi22 hash `02B41D266C204B8C` verified).
+
 ### Docs reorganised (2026-11-23)
 - `PROJECT_PROMPT.md` → `docs/requirements/`
 - Conference paper PDF → `docs/reference/Stress_Aware_Battery_Test_Conference_Paper.pdf` (renamed; original name `Stress_Aware_Battery_Test_Conference_Paper_FIMO_Format_2004_corrected (1) (1).pdf`)
